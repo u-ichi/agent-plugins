@@ -1,7 +1,6 @@
 {
-  "$schema": "https://agent-plugins.org/schemas/1.1.0/plugin.schema.json",
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "business-figures",
-  "displayName": "Business figures",
   "description": "事業資料や報告を図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、112種の図の見本、描き方を持つ",
   "author": {
     "name": "u-ichi"

@@ -35,7 +35,7 @@ figures.html には38種の図が、名前、形（何を、どの位置や線�
 | 性能と信頼性 | どこで時間や資源を使い、どれだけ失敗してよいか |
 | 判断 | 案をどの観点で比べ、何を選ぶか |
 
-役割ごとの手順（スイムレーン）、期間の計画（ガント）、条件の分かれ（判断の木）、原因の分解（なぜの木、フィッシュボーン）、量の流れ（Sankey）は、business-figures の figures.html にある形を使う。
+役割ごとの手順（スイムレーン）、期間の計画（ガント）、条件の分かれ（判断の木）、原因の分解（なぜの木、フィッシュボーン）、量の流れ（Sankey）は、plugin「business-figures」の figures.html にある形を使う。business-figures が入っていなければ、https://github.com/u-ichi/agent-plugins/blob/main/plugins/business-figures/skills/business-figures/references/figures.html を読む。読めないときは Mermaid で描く。スイムレーンは flowchart の subgraph を役割ごとに分け、判断の木と原因の分解は flowchart の木にし、期間は gantt、量の流れは sankey-beta にする。
 
 ## 描き方の決まり
 
