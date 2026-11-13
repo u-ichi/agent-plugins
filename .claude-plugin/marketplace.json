@@ -1,0 +1,16 @@
+{
+  "name": "u-ichi",
+  "owner": {
+    "name": "u-ichi"
+  },
+  "metadata": {
+    "description": "u-ichi が公開する Claude Code と Agent Plugins 向けの plugin"
+  },
+  "plugins": [
+    {
+      "name": "business-figures",
+      "source": "./plugins/business-figures",
+      "description": "事業資料や報告を図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、93種の図の見本、描き方を持つ"
+    }
+  ]
+}
