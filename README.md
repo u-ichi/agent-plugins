@@ -4,7 +4,8 @@ u-ichi が公開する、エージェント向けの plugin の置き場所。�
 
 | plugin | 中身 |
 |---|---|
-| [business-figures](plugins/business-figures) | 事業企画、マーケティング、市場調査、事業計画などの資料や報告を、図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、93種の図の見本（[figures.html](plugins/business-figures/skills/business-figures/references/figures.html)）、描き方を持つ |
+| [business-figures](plugins/business-figures) | 事業企画、マーケティング、市場調査、事業計画などの資料や報告を、図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、112種の図の見本（[figures.html](plugins/business-figures/skills/business-figures/references/figures.html)）、描き方を持つ |
+| [dev-figures](plugins/dev-figures) | ソフトウェアの設計書、PR の説明、障害の報告などを、図を中心に作るための skill。見せたいことから図の形を選ぶ順、38種の図の見本（[figures.html](plugins/dev-figures/skills/dev-figures/references/figures.html)）、描き方を持つ |
 
 ## 入れ方
 
@@ -13,13 +14,14 @@ Claude Code：
 ```sh
 /plugin marketplace add u-ichi/agent-plugins
 /plugin install business-figures@u-ichi
+/plugin install dev-figures@u-ichi
 ```
 
-claude.ai（Claude のプロジェクトとクラウドのセッション）：https://claude.ai/customize/plugins の Add > Add marketplace で `u-ichi/agent-plugins` を足し、business-figures を追加してオンにする。
+claude.ai（Claude のプロジェクトとクラウドのセッション）：https://claude.ai/customize/plugins の Add > Add marketplace で `u-ichi/agent-plugins` を足し、business-figures と dev-figures を追加してオンにする。
 
-Agent Plugins に対応したツール：`plugins/business-figures/` が plugin のフォルダ（直下に `plugin.json` と `skills/`）。入れ方はツールごとの説明に従う。
+Agent Plugins に対応したツール：`plugins/business-figures/` と `plugins/dev-figures/` が plugin のフォルダ（直下に `plugin.json` と `skills/`）。入れ方はツールごとの説明に従う。
 
-skill だけを使うとき：`plugins/business-figures/skills/business-figures/` を、使うツールの skill のフォルダに写す。
+skill だけを使うとき：`plugins/<名前>/skills/<名前>/` を、使うツールの skill のフォルダに写す。
 
 ## 置き方
 
