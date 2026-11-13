@@ -8,14 +8,9 @@
   },
   "plugins": [
     {
-      "name": "business-figures",
-      "source": "./plugins/business-figures",
-      "description": "事業資料や報告を図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、112種の図の見本、描き方を持つ"
-    },
-    {
-      "name": "dev-figures",
-      "source": "./plugins/dev-figures",
-      "description": "設計書、PR、障害の報告を図を中心に作るための skill。見せたいことから図の形を選ぶ順、38種の図の見本、描き方を持つ"
+      "name": "figure-docs",
+      "source": "./plugins/figure-docs",
+      "description": "図を中心に資料を作るための skill。事業の資料と開発の説明で、言いたいことから図の形を選ぶ順、事業の図112種と開発の図38種の見本、資料1本を作り切る手順を持つ"
     }
   ]
 }

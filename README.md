@@ -4,8 +4,7 @@ u-ichi が公開する、エージェント向けの plugin の置き場所。�
 
 | plugin | 中身 |
 |---|---|
-| [business-figures](plugins/business-figures) | 事業企画、マーケティング、市場調査、事業計画などの資料や報告を、図を中心に作るための skill。論点の比べ方から図の形を選ぶ順、112種の図の見本（[figures.html](plugins/business-figures/skills/business-figures/references/figures.html)）、描き方を持つ |
-| [dev-figures](plugins/dev-figures) | ソフトウェアの設計書、PR の説明、障害の報告などを、図を中心に作るための skill。見せたいことから図の形を選ぶ順、38種の図の見本（[figures.html](plugins/dev-figures/skills/dev-figures/references/figures.html)）、描き方を持つ |
+| [figure-docs](plugins/figure-docs) | 事業の資料（事業企画、マーケティング、市場調査、事業計画）と開発の説明（設計書、PR の説明、障害の報告）を、図を中心に作り切るための skill。言いたいことから図の形を選ぶ順、資料の形式と字体、事業の図112種（[business.html](plugins/figure-docs/skills/figure-docs/references/business.html)）と開発の図38種（[dev.html](plugins/figure-docs/skills/figure-docs/references/dev.html)）の見本を持つ |
 
 ## 入れ方
 
@@ -13,15 +12,14 @@ Claude Code：
 
 ```sh
 /plugin marketplace add u-ichi/agent-plugins
-/plugin install business-figures@u-ichi
-/plugin install dev-figures@u-ichi
+/plugin install figure-docs@u-ichi
 ```
 
-claude.ai（Claude のプロジェクトとクラウドのセッション）：https://claude.ai/customize/plugins の Add > Add marketplace で `u-ichi/agent-plugins` を足し、business-figures と dev-figures を追加してオンにする。
+claude.ai（Claude のプロジェクトとクラウドのセッション）：https://claude.ai/customize/plugins の Add > Add marketplace で `u-ichi/agent-plugins` を足し、figure-docs を追加してオンにする。
 
-Agent Plugins に対応したツール：`plugins/business-figures/` と `plugins/dev-figures/` が plugin のフォルダ（直下に `plugin.json` と `skills/`）。入れ方はツールごとの説明に従う。
+Agent Plugins に対応したツール：`plugins/figure-docs/` が plugin のフォルダ（直下に `plugin.json` と `skills/`）。入れ方はツールごとの説明に従う。
 
-skill だけを使うとき：`plugins/<名前>/skills/<名前>/` を、使うツールの skill のフォルダに写す。
+skill だけを使うとき：`plugins/figure-docs/skills/figure-docs/` を、使うツールの skill のフォルダに写す。
 
 ## 置き方
 
@@ -34,4 +32,4 @@ plugins/<名前>/skills/<skill>/SKILL.md   両方が読む skill
 
 ## ライセンス
 
-MIT（[LICENSE](LICENSE)）。business-figures の図の分類と名前は Financial Times Visual Vocabulary（MIT）による。著作権の表示は [plugins/business-figures/LICENSES/FT-Visual-Vocabulary.txt](plugins/business-figures/LICENSES/FT-Visual-Vocabulary.txt)。
+MIT（[LICENSE](LICENSE)）。事業の図の分類と名前は Financial Times Visual Vocabulary（MIT）による。著作権の表示は [plugins/figure-docs/LICENSES/FT-Visual-Vocabulary.txt](plugins/figure-docs/LICENSES/FT-Visual-Vocabulary.txt)。

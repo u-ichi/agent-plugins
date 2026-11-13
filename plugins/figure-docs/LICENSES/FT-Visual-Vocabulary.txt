@@ -1,4 +1,4 @@
-The figure categories and chart names in business-figures follow the Financial Times Visual Vocabulary
+The figure categories and chart names in figure-docs (references/business.html) follow the Financial Times Visual Vocabulary
 (https://github.com/Financial-Times/chart-doctor/tree/main/visual-vocabulary), used under the MIT License below.
 
 The MIT License (MIT)
