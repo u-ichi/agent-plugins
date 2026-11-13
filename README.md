@@ -4,7 +4,7 @@ u-ichi が公開する、エージェント向けの plugin の置き場所。�
 
 | plugin | 中身 |
 |---|---|
-| [figure-docs](plugins/figure-docs) | 事業の資料（事業企画、マーケティング、市場調査、事業計画）と開発の説明（設計書、PR の説明、障害の報告）を、図を中心に作り切るための skill。言いたいことから図の形を選ぶ順、資料の形式と字体、事業の図112種（[business.html](plugins/figure-docs/skills/figure-docs/references/business.html)）と開発の図38種（[dev.html](plugins/figure-docs/skills/figure-docs/references/dev.html)）の見本を持つ |
+| [figure-docs](plugins/figure-docs) | 人に読ませる資料（報告、草案、比較や判断の資料、事業の資料、開発の説明）を、HTML のページ、Artifact、Markdown で図を中心に作り切るための skill。言いたいことから図の形を選ぶ順、資料の形式と字体、事業の図112種（[business.html](plugins/figure-docs/skills/figure-docs/references/business.html)）と開発の図38種（[dev.html](plugins/figure-docs/skills/figure-docs/references/dev.html)）の見本を持つ |
 
 ## 入れ方
 
