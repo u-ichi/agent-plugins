@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "dev-figures",
+  "description": "ソフトウェアの設計書、PR の説明、障害の報告などを、図を中心に作るための skill。見せたいことから図の形を選ぶ順、38種の図の見本、描き方を持つ",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": ["figures", "diagrams", "architecture", "mermaid", "japanese"]
+}
