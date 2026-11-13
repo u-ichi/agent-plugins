@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "figure-docs",
+  "description": "図を中心に資料を作るための skill。事業の資料と開発の説明で、言いたいことから図の形を選ぶ順、事業の図112種と開発の図38種の見本、資料1本を作り切る手順を持つ",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": ["figures", "charts", "diagrams", "documents", "business", "architecture", "mermaid", "japanese"]
+}
