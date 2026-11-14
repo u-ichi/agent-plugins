@@ -6,7 +6,7 @@
 
 同じ依頼（「ペット保険市場に参入すべきかを判断する資料を作って」、数値は架空）で、figure-docs を読ませない場合と読ませた場合に Claude が作った資料の先頭部分。
 
-![figure-docs を読ませない場合と読ませた場合に作った同じ資料](../../docs/figure-docs/before-after.png)
+![figure-docs を読ませない場合と読ませた場合に作った同じ資料](images/before-after.png)
 
 | | figure-docs なし | figure-docs あり |
 |---|---|---|
@@ -66,7 +66,7 @@ flowchart LR
 | 流れ（4） | 状態や場所の間を動く量 | Sankey、Chord、Network |
 | 数が無い論点（33） | 位置づけ、枠組み、手順、関係、因果、判断、前と後 | 2x2、ロジックツリー、スイムレーン、フィッシュボーン、SWOT、ビジネスモデルキャンバス |
 
-![事業の図の見本112種](../../docs/figure-docs/figures-business.png)
+![事業の図の見本112種](images/figures-business.png)
 
 ### 開発の図（38種）
 
@@ -88,7 +88,7 @@ flowchart LR
 
 開発の図は次も守る。四角は1枚に6つまでにし、つながらない四角は描かない。矢印には何を渡すかを書く。部品が3つ以上増える構成や3段階以上の移行は、段階ごとに1つずつ足す連作にする。変更の前と後は同じ配置で並べ、足すものを緑、消すものを赤の点線、変えるものを太線にする。
 
-![開発の図の見本38種](../../docs/figure-docs/figures-dev.png)
+![開発の図の見本38種](images/figures-dev.png)
 
 ## 使われる場面
 
@@ -103,6 +103,7 @@ skills/figure-docs/SKILL.md          skill の本文（選ぶ順、資料の形�
 skills/figure-docs/references/business.html  事業の図の見本
 skills/figure-docs/references/dev.html       開発の図の見本
 LICENSES/FT-Visual-Vocabulary.txt    FT Visual Vocabulary の著作権の表示
+images/                              この README の画像
 ```
 
 入れ方はリポジトリの [README](../../README.md#入れ方) にある。
