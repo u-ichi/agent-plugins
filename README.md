@@ -29,7 +29,7 @@ plugins/<名前>/plugin.json              Agent Plugins の manifest
 plugins/<名前>/.claude-plugin/plugin.json  Claude Code の manifest
 plugins/<名前>/skills/<skill>/SKILL.md   両方が読む skill
 plugins/<名前>/README.md               その plugin の説明（何をして、何が出るか）
-docs/<名前>/                           README の画像（plugin を入れても写されない）
+plugins/<名前>/images/                 その README の画像
 ```
 
 ## ライセンス
