@@ -43,7 +43,7 @@ flowchart LR
 | GitHub に置く開発の説明（PR、issue、設計書） | Markdown に Mermaid の図を入れる。図が多いときは HTML のページ |
 | Word、PDF などを名指しされたとき | その形式 |
 
-日本語はゴシック体にし、HTML では Google Fonts の Noto Sans JP を読み込む。図の中の文字は部品の名前と値と数語の注記にし、文は図の下の要点1行か、畳んだ詳細に置く。
+日本語はゴシック体にし、HTML では Google Fonts の Noto Sans JP を読み込む。図の中の文字は、何を指すか分かる部品の名前と、何の値か分かる値と、数語の注記にし、文は図の下の要点1行か、畳んだ詳細に置く。
 
 ## 図の分類と見本
 
