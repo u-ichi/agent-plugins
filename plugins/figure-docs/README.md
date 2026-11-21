@@ -1,66 +1,66 @@
 # figure-docs
 
-人に読ませる資料を、図を中心に作り切るための skill。言いたいことごとに図の形を先に決めて描き、文章は図ごとの要点1行にする。事業の資料（事業企画、マーケティング、市場調査、事業計画）と、開発の説明（設計書、PR の説明、障害の報告、移行の計画）の両方に使う。
+人に読ませる資料を、図を中心に仕上げるための skill。言いたいことを1文に決めて図の形を先に選び、文章は図ごとの要点1行にとどめる。事業の資料（事業企画、マーケティング、市場調査、事業計画）と、開発の説明（設計書、PR の説明、障害の報告、移行の計画）の両方に使える。
 
 ## 何が出るか
 
-同じ依頼（「ペット保険市場に参入すべきかを判断する資料を作って」、数値は架空）で、figure-docs を読ませない場合と読ませた場合に Claude が作った資料の先頭部分。
+同じ依頼（「ペット保険市場に参入すべきかを判断する資料を作って」、数値は架空）に対し、figure-docs なしで作成した場合と、figure-docs を読んで作成した場合の先頭部分の比較。
 
-![figure-docs を読ませない場合と読ませた場合に作った同じ資料](images/before-after.png)
+![figure-docs を読ませない場合と読ませた場合の資料の比較](images/before-after.png)
 
 | | figure-docs なし | figure-docs あり |
 |---|---|---|
-| 節の見出し | 「市場の大きさと伸び」のような題 | 「市場は年11%で伸びている」のような言いたいこと1文 |
+| 節の見出し | 「市場の大きさと伸び」のような題名 | 「市場は年11%で伸びている」のような言いたいこと1文 |
 | 図 | 1つ（ほかは横棒と表） | 7つ（節ごとに1つ。散布図、ガント、因果の矢印の図など） |
 | 表 | 4つ | 0 |
-| 見えている文字 | およそ1,770字 | およそ490字（詳細は畳む） |
+| 見えている文字 | およそ1,770字 | およそ490字（詳細は折りたたむ） |
 
-## 動き
+## 資料を作る手順
 
-skill を読んだエージェントは、資料の節ごとに次の順で進める。形から先に決めず、文章は図の後に足す。
+skill を読んだエージェントは、資料の節ごとに次の順で進める。図の形から先に決めず、文章は図を描いた後に足す。
 
 ```mermaid
 flowchart LR
   A["言いたいことを1文に決める"] --> B["何を比べるかで分類を決める"]
   B --> C["見本からその分類の形を選ぶ"]
   C --> D["描き方を選んで図を描く"]
-  D --> E["要点1行を添え、詳細は畳む"]
-  E --> F{"文章を消し、図の中を名前と値だけにしても分かるか"}
-  F -- "分からない" --> C
+  D --> E["要点1行を添え、詳細は折りたたむ"]
+  E --> F{"文章を消し、要素名と値だけにしても伝わるか"}
+  F -- "伝わらない" --> C
 ```
 
-描き方は、次の順で最初に当てはまるものを使う。
+描き方は、次の順で最初に当てはまるものを選ぶ。
 
-1. Artifact の側にその形の描き方があればそれを使う（Artifact の tool が作れる種類と、artifact-design、artifact-diagramming、dataviz などの skill）。
+1. Artifact 側にその形の描き方があればそれを使う（Artifact のツールが作れる種類や、`artifact-design`、`artifact-diagramming`、`dataviz` などの skill）。
 2. 開発の図で、置き場所が Mermaid を表示できる（GitHub の Markdown、Artifact）なら Mermaid で書く。
-3. どちらも無ければ、見本の svg を写して描く。位置の計算が要る図（Sankey、Treemap など）と地図は、d3 などで位置を計算した結果を svg にして埋め込む。
+3. どちらも使えないときは、見本をもとに SVG で描く。位置の計算が必要な図（Sankey、Treemap など）と地図は、d3 などで計算した結果や簡略化した境界データを SVG として埋め込む。
 
-## 出す資料の形
+## 出力する資料の形式
 
 | 資料 | 形式 |
 |---|---|
-| 事業の資料、報告、判断の資料 | 1つの HTML のページ。Artifact を作れる環境では Artifact |
-| GitHub に置く開発の説明（PR、issue、設計書） | Markdown に Mermaid の図を入れる。図が多いときは HTML のページ |
-| Word、PDF などを名指しされたとき | その形式 |
+| 事業の資料、報告、草案、比較・判断の資料 | 1つの HTML ページ。Artifact を作れる環境では Artifact |
+| GitHub に置く開発の説明（PR、issue、設計書） | Markdown に Mermaid の図を入れる。図が多いときや Mermaid で描けない形が必要なときは HTML ページ |
+| Word、PDF などを名指しされたとき | 指定された形式 |
 
-日本語はゴシック体にし、HTML では Google Fonts の Noto Sans JP を読み込む。図の中の文字は、何を指すか分かる部品の名前と、何の値か分かる値と、数語の注記にし、文は図の下の要点1行か、畳んだ詳細に置く。
+日本語は図やグラフの中も含めてゴシック体にし、HTML では Google Fonts の Noto Sans JP を読み込む。図の中の文字は、何を指すか分かる要素名、何の値か分かる値、数語の注記にとどめ、文章は図の下の要点1行か、折りたたんだ詳細に置く。
 
 ## 図の分類と見本
 
-見本は、図ごとに名前、形（何を、どの軸や位置や線や色で描くか）、使う場面、最小の svg を持つ。開発の図には、描ける Mermaid の種類も添えてある。
+見本には、図ごとに名前、形（何をどの軸・位置・線・色で描くか）、使う場面、最小の SVG をまとめている。開発の図には、描ける Mermaid の種類も添えてある。
 
 ### 事業の図（112種）
 
-数のある図の分類と名前は Financial Times Visual Vocabulary（MIT）による。見本の全体は [references/business.html](skills/figure-docs/references/business.html)。
+数値のある図の分類と名前は Financial Times Visual Vocabulary（MIT）に基づく。見本の全体は [references/business.html](skills/figure-docs/references/business.html)。
 
 | 分類 | 使う場面 | 図の例 |
 |---|---|---|
 | 差（6） | 0、目標、平均などの基準からの上下 | Diverging bar、Bullet chart、Tornado chart |
 | 相関（6） | 2つ以上の値の関係 | Scatterplot、Bubble、BCG matrix |
 | 順位（7） | 並びの中の位置 | Ordered bar、Slope、Pareto chart |
-| 分布（9） | 値がどこにどれだけあるか | Histogram、Boxplot、Football field |
+| 分布（9） | 値がどこにどれだけ集まっているか | Histogram、Boxplot、Football field |
 | 時間での変化（17） | 傾向の変わり方 | Line、Fan chart、Cohort retention heatmap、S字の普及曲線 |
-| 内訳（12） | 全体を部品に分ける | Stacked column、Treemap、Waterfall、Marimekko、KPIツリー |
+| 内訳（12） | 全体を要素に分ける | Stacked column、Treemap、Waterfall、Marimekko、KPIツリー |
 | 大きさ（10） | 数えた量の比較 | Bar、Paired bar、Isotype |
 | 地理（8） | 場所や地域の違い | Basic choropleth、Flow map、Scaled cartogram |
 | 流れ（4） | 状態や場所の間を動く量 | Sankey、Chord、Network |
@@ -70,7 +70,7 @@ flowchart LR
 
 ### 開発の図（38種）
 
-見本の全体は [references/dev.html](skills/figure-docs/references/dev.html)。分類は C4 model、UML、arc42、DDD、STRIDE、SRE の定番から取った。
+見本の全体は [references/dev.html](skills/figure-docs/references/dev.html)。分類は C4 model、UML、arc42、DDD、STRIDE、SRE の定番から選んだ。
 
 | 分類 | 見せること | 図の例 |
 |---|---|---|
@@ -84,30 +84,35 @@ flowchart LR
 | 性能と信頼性（4） | どこで時間を使い、どれだけ失敗してよいか | Trace のタイムライン、Flame graph、エラーバジェットの消費 |
 | 判断（2） | 案の比べ方と選んだもの | 設計案の比較表、Requirement diagram |
 
-スイムレーン、ガント、判断の木、なぜの木、Sankey は、事業の図の見本にある形を使う。
+役割ごとの手順（スイムレーン）、期間の計画（ロードマップ、ガント）、条件の分かれ（判断の木）、原因の分解（なぜの木、フィッシュボーン）、量の流れ（Sankey）は、事業の図の見本にある形を使う。
 
-開発の図は次も守る。四角は1枚に6つまでにし、つながらない四角は描かない。矢印には何を渡すかを書く。部品が3つ以上増える構成や3段階以上の移行は、段階ごとに1つずつ足す連作にする。変更の前と後は同じ配置で並べ、足すものを緑、消すものを赤の点線、変えるものを太線にする。
+開発の図では、次の基準も守る。
+
+- 1枚の図の四角は6つまでとし、ほかの四角とつながらない四角は描かない。
+- 矢印には渡す内容（呼び出し、データ名、方式）を書く。
+- 部品が3つ以上増える構成や3段階以上の移行は、段階ごとに1つずつ足す連作にする。
+- 変更の前と後は同じ配置で並べ、追加を緑、削除を赤の点線、変更を太線で示す。
 
 ![開発の図の見本38種](images/figures-dev.png)
 
 ## 使われる場面
 
-skill の説明文（SKILL.md の description）は「人に読ませる資料を作るとき」で、報告、草案、比較や判断の資料、事業の資料、開発の説明を、HTML のページ、Artifact、Markdown のどれで作るときも当たる。この説明文に当たる依頼のとき、エージェントがこの skill を読む。
+`SKILL.md` の `description` には「人に読ませる資料を作るとき」と記しており、報告、草案、比較・判断の資料、事業の資料、開発の説明を、HTML ページ、Artifact、Markdown のどれで作るときも対象になる。これに該当する依頼を受けたとき、エージェントがこの skill を読み込む。
 
-## ファイル
+## ファイル構成
 
 ```
-plugin.json                          Agent Plugins の manifest
-.claude-plugin/plugin.json           Claude Code の manifest
-skills/figure-docs/SKILL.md          skill の本文（選ぶ順、資料の形式、分類、描き方の決まり）
+plugin.json                                  Agent Plugins の manifest
+.claude-plugin/plugin.json                   Claude Code の manifest
+skills/figure-docs/SKILL.md                  skill の本文（選び方、資料の形式、分類、描き方のルール）
 skills/figure-docs/references/business.html  事業の図の見本
 skills/figure-docs/references/dev.html       開発の図の見本
-LICENSES/FT-Visual-Vocabulary.txt    FT Visual Vocabulary の著作権の表示
-images/                              この README の画像
+LICENSES/FT-Visual-Vocabulary.txt            FT Visual Vocabulary の著作権表示
+images/                                      この README で使う画像
 ```
 
-入れ方はリポジトリの [README](../../README.md#入れ方) にある。
+インストール手順はリポジトリの [README](../../README.md#入れ方) を参照。
 
 ## ライセンス
 
-MIT。事業の図の分類と名前は Financial Times Visual Vocabulary（MIT）による。著作権の表示は [LICENSES/FT-Visual-Vocabulary.txt](LICENSES/FT-Visual-Vocabulary.txt)。
+MIT。事業の図の分類と名前は Financial Times Visual Vocabulary（MIT）に基づく。著作権表示は [LICENSES/FT-Visual-Vocabulary.txt](LICENSES/FT-Visual-Vocabulary.txt)。
