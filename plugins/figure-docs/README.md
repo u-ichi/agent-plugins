@@ -39,9 +39,9 @@ flowchart LR
 
 | 資料 | 形式 |
 |---|---|
-| 事業の資料、報告、草案、比較・判断の資料 | 1つの HTML ページ。Artifact を作れる環境では Artifact |
-| GitHub に置く開発の説明（PR、issue、設計書） | Markdown に Mermaid の図を入れる。図が多いときや Mermaid で描けない形が必要なときは HTML ページ |
 | Word、PDF などを名指しされたとき | 指定された形式 |
+| GitHub に置く開発の説明（PR、issue、リポジトリの文書。障害の報告や設計書など） | Markdown に Mermaid の図を入れる。図が多いときや Mermaid で描けない形が必要なときは HTML ページ |
+| それ以外の資料（事業の資料、報告、草案、比較・判断の資料など） | 1つの HTML ページ。Artifact を作れる環境では Artifact |
 
 日本語は図やグラフの中も含めてゴシック体にし、HTML では Google Fonts の Noto Sans JP を読み込む。図の中の文字は、何を指すか分かる要素名、何の値か分かる値、数語の注記にとどめ、文章は図の下の要点1行か、折りたたんだ詳細に置く。
 
