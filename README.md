@@ -5,6 +5,7 @@ u-ichi が公開する、AI エージェント向け plugin のリポジトリ�
 | plugin | 概要 |
 |---|---|
 | [figure-docs](plugins/figure-docs) | 人に読ませる資料（報告、判断の資料、事業の資料、開発の説明）を図を中心に作成する skill。事業の図112種と開発の図38種の見本を備える。詳しくは [plugin の README](plugins/figure-docs/README.md) |
+| [semantic-generation](plugins/semantic-generation) | 語より先に指す対象と名前を固定し、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ skill。詳しくは [plugin の README](plugins/semantic-generation/README.md) |
 
 ## 入れ方
 

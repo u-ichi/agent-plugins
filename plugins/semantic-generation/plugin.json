@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "semantic-generation",
+  "description": "返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書くときや、コード・画面の新しい名前を決めるときに、語より先に指す対象と名前を固定する skill。不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぎ、対象文書では7列の対応表を本文より先に確定してから書く手順を備える。",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": ["writing", "naming", "terminology", "documentation", "semantics", "japanese"]
+}
