@@ -32,7 +32,7 @@ flowchart LR
 描き方は、次の順で最初に当てはまるものを選ぶ。
 
 1. Artifact 側にその形の描き方があればそれを使う（Artifact のツールが作れる種類や、`artifact-design`、`artifact-diagramming`、`dataviz` などの skill）。
-2. Artifact と HTML では、見本をもとに SVG で描く（配置と色を読みやすさに合わせて決められるため）。位置の計算が必要な図（Sankey、Treemap など）と地図は、d3 などで計算した結果や簡略化した境界データを SVG として埋め込む。
+2. Artifact、HTML、Word、PDF では、見本をもとに SVG で描く（配置と色を読みやすさに合わせて決められるため）。位置の計算が必要な図（Sankey、Treemap など）と地図は、d3 などで計算した結果や簡略化した境界データを SVG として埋め込む。
 3. GitHub の PR、issue、リポジトリの文書のように Markdown しか置けない所では、Mermaid で書く。
 
 ## 出力する資料の形式
