@@ -1,4 +1,4 @@
-# semantic-generation
+# referent-first
 
 文章やコードの識別子を書く前に、指す対象と役割と名前を確定し、決めた名前だけで書くための skill。名前を先に置いて対象を後から当てはめたり、書きながら短い呼び名や作業ラベルを作ったりして意味がずれるのを防ぐ。
 
@@ -24,7 +24,7 @@ Claude Code：
 
 ```sh
 /plugin marketplace add u-ichi/agent-plugins
-/plugin install semantic-generation@u-ichi
+/plugin install referent-first@u-ichi
 ```
 
 claude.ai、Agent Plugins に対応したツール、または skill 単体での導入手順はリポジトリの [README](../../README.md#入れ方) を参照。
@@ -34,7 +34,7 @@ claude.ai、Agent Plugins に対応したツール、または skill 単体で�
 ```
 plugin.json                                  Agent Plugins の manifest
 .claude-plugin/plugin.json                   Claude Code の manifest
-skills/semantic-generation/SKILL.md          skill の本文（基準、名前を探す先、対応表と執筆の手順）
+skills/referent-first/SKILL.md          skill の本文（基準、名前を探す先、対応表と執筆の手順）
 ```
 
 ## ライセンス
