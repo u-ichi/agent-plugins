@@ -32,8 +32,8 @@ flowchart LR
 描き方は、次の順で最初に当てはまるものを選ぶ。
 
 1. Artifact 側にその形の描き方があればそれを使う（Artifact のツールが作れる種類や、`artifact-design`、`artifact-diagramming`、`dataviz` などの skill）。
-2. 開発の図で、置き場所が Mermaid を表示できる（GitHub の Markdown、Artifact）なら Mermaid で書く。
-3. どちらも使えないときは、見本をもとに SVG で描く。位置の計算が必要な図（Sankey、Treemap など）と地図は、d3 などで計算した結果や簡略化した境界データを SVG として埋め込む。
+2. Artifact、HTML、Word、PDF では、見本をもとに SVG で描く（配置と色を読みやすさに合わせて決められるため）。位置の計算が必要な図（Sankey、Treemap など）と地図は、d3 などで計算した結果や簡略化した境界データを SVG として埋め込む。
+3. GitHub の PR、issue、リポジトリの文書のように Markdown しか置けない所では、Mermaid で書く。
 
 ## 出力する資料の形式
 
@@ -97,7 +97,7 @@ flowchart LR
 
 ## 使われる場面
 
-`SKILL.md` の `description` には「人に読ませる資料を作るとき」と記しており、報告、草案、比較・判断の資料、事業の資料、開発の説明を、HTML ページ、Artifact、Markdown のどれで作るときも対象になる。これに該当する依頼を受けたとき、エージェントがこの skill を読み込む。
+`SKILL.md` の `description` には「人に読ませる資料を作るとき」と「図にする説明を返信で書くとき」を記しており、報告、草案、比較・判断の資料、事業の資料、開発の説明を、HTML ページ、Artifact、Markdown のどれで作るときも、チャットや PR・issue のコメントで仕組みや案の比較を説明するときも対象になる。返信では、書く前に図を描いて構造を確かめ、返信の中の図で済ませるか資料を作るかを決める（`SKILL.md` の「説明の返信」）。これに該当する依頼を受けたとき、エージェントがこの skill を読み込む。
 
 ## ファイル構成
 
