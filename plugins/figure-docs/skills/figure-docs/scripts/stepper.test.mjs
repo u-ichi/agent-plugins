@@ -33,6 +33,14 @@ test("色の値を直接書いた図は断る", () => {
   assert.match(check(spec).join("\n"), /色の値/);
 });
 
+test("1本の矢印の文字を複数の text に分けた図は、矢印の名前を挙げて断る", () => {
+  const spec = example();
+  spec.svg = spec.svg.replace(/(<g[^>]*data-arrow="bossok"[^>]*>[\s\S]*?)(<\/g>)/, '$1<text x="10" y="10">上</text><text x="10" y="30">下</text>$2');
+  const msg = check(spec).join("\n");
+  assert.match(msg, /矢印 bossok の文字が text \d+個/);
+  assert.doesNotMatch(msg, /矢印 auto /);
+});
+
 let chromium;
 try {
   chromium = createRequire(import.meta.url)("playwright").chromium;
@@ -70,4 +78,24 @@ test("ボタンで論点が切り替わり、スクリプトが動かなくて�
   } finally {
     await browser.close();
   }
+});
+
+test("2行の矢印の文字も、1つの text に tspan で書けば札は1枚で2行を覆う", { skip: !chromium && "playwright が無い" }, async () => {
+  const arrow = (label) => `<svg viewBox="0 0 300 120"><g data-box="a"><rect x="10" y="10" width="60" height="30"/><text x="20" y="30">A</text></g><g data-box="b"><rect x="230" y="10" width="60" height="30"/><text x="240" y="30">B</text></g><g data-arrow="x"><path d="M70 60 L230 60"/>${label}</g></svg>`;
+  const pillHeight = async (svg) => {
+    const spec = { title: "t", svg, steps: [{ name: "n1", focus: ["x"], point: "p" }, { name: "n2", focus: ["a"], point: "q" }] };
+    assert.deepEqual(check(spec), []);
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      await page.setContent(preview(build(spec), "light"));
+      assert.equal(await page.locator(".fs-pill").count(), 1);
+      return Number(await page.getAttribute(".fs-pill", "height"));
+    } finally {
+      await browser.close();
+    }
+  };
+  const one = await pillHeight(arrow('<text x="120" y="52">一行</text>'));
+  const two = await pillHeight(arrow('<text x="120" y="40">一行目<tspan x="120" dy="16">二行目</tspan></text>'));
+  assert.ok(two > one * 1.5, `2行 ${two} は 1行 ${one} の1.5倍より高い`);
 });
