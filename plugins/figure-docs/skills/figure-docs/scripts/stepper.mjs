@@ -15,6 +15,10 @@ export function check(spec) {
   const boxes = [...svg.matchAll(/data-box="([^"]+)"/g)].map((m) => m[1]);
   const arrows = [...svg.matchAll(/data-arrow="([^"]+)"/g)].map((m) => m[1]);
   const ids = new Set([...boxes, ...arrows]);
+  for (const [, id, body] of svg.matchAll(/<g\b[^>]*data-arrow="([^"]+)"[^>]*>([\s\S]*?)<\/g>/g)) {
+    const n = (body.match(/<text\b/g) ?? []).length;
+    if (n > 1) errors.push(`矢印 ${id} の文字が text ${n}個に分かれています。1本の矢印の文字は1つの text にまとめ、2行にするときは同じ text の中の tspan で線の同じ側に並べます。`);
+  }
   const steps = spec.steps ?? [];
   if (steps.length < 2) errors.push("論点が2つ未満です。論点が1つなら切り替えずに図1枚にします。");
   steps.forEach((s, k) => {
