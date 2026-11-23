@@ -5,7 +5,7 @@ u-ichi が公開する、AI エージェント向け plugin のリポジトリ�
 | plugin | 概要 |
 |---|---|
 | [figure-docs](plugins/figure-docs) | 人に読ませる資料（報告、判断の資料、事業の資料、開発の説明）を図を中心に作成する skill。事業の図112種と開発の図38種の見本を備える。詳しくは [plugin の README](plugins/figure-docs/README.md) |
-| [referent-first](plugins/referent-first) | 名前より先に指す物を決め、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ skill。対象文書では7列の対応表を本文より先に独立保存してから書く手順を備える。詳しくは [plugin の README](plugins/referent-first/README.md) |
+| [referent-first](plugins/referent-first) | 名前より先に実体を決め、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ skill。対象文書では7列の対応表を本文より先に独立保存してから書く手順を備える。詳しくは [plugin の README](plugins/referent-first/README.md) |
 
 ## 入れ方
 
