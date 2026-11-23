@@ -55,7 +55,7 @@ test("ボタンで論点が切り替わり、スクリプトが動かなくて�
   assert.match(await cls("lockedin"), /fs-hot/);
   assert.match(await cls("unlock"), /fs-dim/);
   assert.equal(await page.textContent(".fs-point"), "ロック中でも正しく入力するとログインできてしまう");
-  assert.equal(await page.locator(".fs-badge").count(), 1);
+  assert.equal(await page.textContent(".fs-badge"), "ここから入れてしまう");
 
   await page.click("[data-go='1']");
   assert.match(await cls("unlock"), /fs-hot/);
