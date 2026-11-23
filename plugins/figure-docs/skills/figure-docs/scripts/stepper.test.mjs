@@ -6,8 +6,8 @@ import { check, build, preview } from "./stepper.mjs";
 
 const here = new URL(".", import.meta.url).pathname;
 const example = () => {
-  const spec = JSON.parse(fs.readFileSync(`${here}examples/login-lock.json`, "utf8"));
-  spec.svg = fs.readFileSync(`${here}examples/login-lock.svg`, "utf8");
+  const spec = JSON.parse(fs.readFileSync(`${here}examples/expense-approval.json`, "utf8"));
+  spec.svg = fs.readFileSync(`${here}examples/expense-approval.svg`, "utf8");
   return spec;
 };
 
@@ -46,19 +46,23 @@ test("ボタンで論点が切り替わり、スクリプトが動かなくて�
   const cls = async (id) => (await page.getAttribute(`[data-arrow="${id}"]`, "class")) ?? "";
 
   await page.setContent(preview(html, "light"));
-  assert.match(await cls("lockedin"), /fs-hot/);
-  assert.doesNotMatch(await cls("unlock"), /fs-hot/);
-  assert.equal(await page.textContent(".fs-point"), "ロック中でも正しく入力するとログインできてしまう");
-  assert.equal(await page.textContent(".fs-badge"), "ここから入れてしまう");
+  assert.match(await cls("bossok"), /fs-hot/);
+  assert.doesNotMatch(await cls("auto"), /fs-hot/);
+  assert.equal(await page.textContent(".fs-point"), "10万円を超えても、上長が承認すると部長を通らずに経理へ進む");
+  assert.equal(await page.textContent(".fs-badge"), "金額を見ずに経理へ送る");
 
-  await page.click("[data-go='1']");
-  assert.match(await cls("unlock"), /fs-hot/);
-  assert.doesNotMatch(await cls("lockedin"), /fs-hot/);
-  assert.equal(await page.textContent(".fs-pos"), "2 / 2");
+  await page.click("li[data-step='1'] button");
+  assert.match(await cls("auto"), /fs-hot/);
+  assert.doesNotMatch(await cls("bossok"), /fs-hot/);
+  const pressed = (sel) => page.getAttribute(sel, "aria-pressed");
+  assert.equal(await pressed("li[data-step='0'] button"), "false");
+  assert.equal(await pressed("li[data-step='1'] button"), "true");
 
   await page.click("[data-all]");
   assert.equal(await page.locator(".fs-hot").count(), 0);
-  assert.match(await page.getAttribute('[data-box="reset"]', "class"), /c-blue/);
+  assert.equal(await pressed("li[data-step='1'] button"), "false");
+  assert.equal(await pressed("[data-all]"), "true");
+  assert.match(await page.getAttribute('[data-box="head"]', "class"), /c-blue/);
 
   const noScript = await browser.newPage({ javaScriptEnabled: false });
   await noScript.setContent(preview(html, "light"));
