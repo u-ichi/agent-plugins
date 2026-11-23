@@ -55,12 +55,16 @@ export function build(spec) {
 .fs svg{display:block;max-width:100%;height:auto;margin:6px auto}
 .fs svg [data-box] text:not(.fs-badge){font-size:15px;font-weight:700}
 .fs svg .fs-pill{fill:var(--surface-1);stroke:var(--border)}
-.fs svg [data-arrow] path{stroke:var(--fs-line)}
-.fs svg [data-arrow] text{fill:var(--fs-line)}
+.fs svg [data-box],.fs svg [data-arrow]{transition:opacity .2s}
+.fs.fs-step svg .fs-dim{opacity:.3}
+.fs svg [data-arrow] path{stroke:var(--text-secondary)}
+.fs svg [data-arrow] text{fill:var(--text-secondary)}
+.fs svg .fs-hot path{stroke:var(--text-primary)}
+.fs svg .fs-hot text{fill:var(--text-primary)}
 .fs svg .fs-hot path{stroke-width:2px}
 .fs svg .fs-hot text{font-weight:700}
-.fs svg .fs-hot .fs-pill{stroke:var(--fs-line);stroke-width:1.2px}
-.fs.fs-step svg [data-box].fs-on :is(rect,polygon,circle):not(.fs-badge-bg){stroke-width:2px}
+.fs svg .fs-hot .fs-pill{stroke:var(--text-primary);stroke-width:1.2px}
+.fs.fs-step svg [data-box].fs-on :is(rect,polygon,circle):not(.fs-badge-bg){stroke-width:2.5px}
 .fs.fs-step svg [data-box].fs-here :is(rect,polygon,circle):not(.fs-badge-bg){stroke-width:3.5px}
 .fs svg .fs-badge-bg{stroke:none}
 .fs svg .fs-badge{font-size:11px;font-weight:700}
@@ -79,17 +83,13 @@ ${spec.svg}
 (()=>{const roots=document.querySelectorAll(".fs:not(.js)");const root=roots[roots.length-1];if(!root)return;root.classList.add("js");
 const steps=${JSON.stringify(steps)};const svg=root.querySelector("svg");const items=[...root.querySelectorAll("li[data-step]")];
 const NS="http://www.w3.org/2000/svg";let i=0,all=false;
-const line={};for(const c of ["c-blue","c-coral","c-gray"]){const g=document.createElementNS(NS,"g");g.setAttribute("class",c);const r=document.createElementNS(NS,"rect");g.appendChild(r);svg.appendChild(g);line[c]=getComputedStyle(r).stroke;g.remove();}
-svg.querySelectorAll("[data-box]").forEach(g=>{g.dataset.color=[...g.classList].find(x=>x.startsWith("c-"))??"";});
 svg.querySelectorAll("[data-arrow] text").forEach(t=>{const b=t.getBBox();const r=document.createElementNS(NS,"rect");r.setAttribute("class","fs-pill");r.setAttribute("x",b.x-5);r.setAttribute("y",b.y-2);r.setAttribute("width",b.width+10);r.setAttribute("height",b.height+4);r.setAttribute("rx",4);t.before(r);});
-const recolor=(g,c)=>{[...g.classList].filter(x=>x.startsWith("c-")).forEach(x=>g.classList.remove(x));if(c)g.classList.add(c);};
 function draw(){root.classList.toggle("fs-step",!all);items.forEach((li,k)=>li.classList.toggle("on",!all&&k===i));
 svg.querySelectorAll(".fs-badge,.fs-badge-bg").forEach(e=>e.remove());
 svg.querySelectorAll("[data-box],[data-arrow]").forEach(g=>{g.classList.remove("fs-on","fs-hot","fs-here");const isBox=g.dataset.box!==undefined;
-if(all){if(isBox)recolor(g,g.dataset.color);else g.style.setProperty("--fs-line",line["c-blue"]);return;}
+g.classList.remove("fs-dim");if(all)return;
 const id=isBox?g.dataset.box:g.dataset.arrow;const on=steps[i].focus.includes(id);
-if(isBox){recolor(g,on?"c-coral":g.dataset.color);if(on)g.classList.add("fs-on");}
-else{g.style.setProperty("--fs-line",line[on?"c-coral":"c-gray"]);if(on)g.classList.add("fs-hot");}
+g.classList.add(on?(isBox?"fs-on":"fs-hot"):"fs-dim");
 if(id===steps[i].here){g.classList.add("fs-here");if(steps[i].mark){const b=g.getBBox();const t=document.createElementNS(NS,"text");t.setAttribute("class","fs-badge");t.setAttribute("x",b.x+6);t.setAttribute("y",b.y+b.height+15);t.textContent=steps[i].mark;g.appendChild(t);const w=t.getBBox().width;const bg=document.createElementNS(NS,"rect");bg.setAttribute("class","fs-badge-bg");bg.setAttribute("x",b.x);bg.setAttribute("y",b.y+b.height+3);bg.setAttribute("width",w+12);bg.setAttribute("height",16);bg.setAttribute("rx",3);t.before(bg);}}});
 root.querySelector(".fs-point").textContent=all?"":items[i].querySelector(".pt").textContent;
 root.querySelector(".fs-pos").textContent=all?"全体":(i+1)+" / "+steps.length;}
