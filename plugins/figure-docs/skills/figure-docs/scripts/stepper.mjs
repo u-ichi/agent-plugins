@@ -90,7 +90,7 @@ svg.querySelectorAll(".fs-badge,.fs-badge-bg").forEach(e=>e.remove());
 svg.querySelectorAll("[data-box],[data-arrow]").forEach(g=>{g.classList.remove("fs-on","fs-hot","fs-here");const isBox=g.dataset.box!==undefined;
 if(all){if(isBox)recolor(g,g.dataset.color);else g.style.setProperty("--fs-line",line["c-blue"]);return;}
 const id=isBox?g.dataset.box:g.dataset.arrow;const on=steps[i].focus.includes(id);
-if(isBox){recolor(g,on?"c-coral":"c-gray");if(on)g.classList.add("fs-on");}
+if(isBox){recolor(g,on?"c-coral":g.dataset.color);if(on)g.classList.add("fs-on");}
 else{g.style.setProperty("--fs-line",line[on?"c-coral":"c-gray"]);if(on)g.classList.add("fs-hot");}
 if(id===steps[i].here){g.classList.add("fs-here");if(steps[i].mark){const b=g.getBBox();const t=document.createElementNS(NS,"text");t.setAttribute("class","fs-badge");t.setAttribute("x",b.x+6);t.setAttribute("y",b.y+b.height+15);t.textContent=steps[i].mark;g.appendChild(t);const w=t.getBBox().width;const bg=document.createElementNS(NS,"rect");bg.setAttribute("class","fs-badge-bg");bg.setAttribute("x",b.x);bg.setAttribute("y",b.y+b.height+3);bg.setAttribute("width",w+12);bg.setAttribute("height",16);bg.setAttribute("rx",3);t.before(bg);}}});
 root.querySelector(".fs-point").textContent=all?"":items[i].querySelector(".pt").textContent;

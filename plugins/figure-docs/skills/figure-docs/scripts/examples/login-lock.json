@@ -4,7 +4,7 @@
   "source": { "label": "依頼", "text": "パスワードを3回まちがえたらロックして。ロック中は入れないように。" },
   "svgFile": "login-lock.svg",
   "steps": [
-    { "name": "ロック中なのに入れる", "focus": ["waiting", "locked", "in", "lock", "lockedin"], "here": "locked", "mark": "ここから入れてしまう", "point": "ロック中でも正しく入力するとログインできてしまう" },
-    { "name": "頼んでいない解除", "focus": ["locked", "waiting", "unlock"], "here": "locked", "mark": "ここから解除される", "point": "ロックの解除のしかたは、依頼に書かれていない" }
+    { "name": "ロック中なのに入れる", "focus": ["locked", "lockedin"], "here": "locked", "mark": "ここから入れてしまう", "point": "ロック中でも正しく入力するとログインできてしまう" },
+    { "name": "頼んでいない解除", "focus": ["locked", "unlock"], "here": "locked", "mark": "ここから解除される", "point": "ロックの解除のしかたは、依頼に書かれていない" }
   ]
 }
