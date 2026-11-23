@@ -51,13 +51,17 @@ test("ボタンで論点が切り替わり、スクリプトが動かなくて�
   assert.equal(await page.textContent(".fs-point"), "10万円を超えても、上長が承認すると部長を通らずに経理へ進む");
   assert.equal(await page.textContent(".fs-badge"), "金額を見ずに経理へ送る");
 
-  await page.click("[data-go='1']");
+  await page.click("li[data-step='1'] button");
   assert.match(await cls("auto"), /fs-hot/);
   assert.doesNotMatch(await cls("bossok"), /fs-hot/);
-  assert.equal(await page.textContent(".fs-pos"), "2 / 2");
+  const pressed = (sel) => page.getAttribute(sel, "aria-pressed");
+  assert.equal(await pressed("li[data-step='0'] button"), "false");
+  assert.equal(await pressed("li[data-step='1'] button"), "true");
 
   await page.click("[data-all]");
   assert.equal(await page.locator(".fs-hot").count(), 0);
+  assert.equal(await pressed("li[data-step='1'] button"), "false");
+  assert.equal(await pressed("[data-all]"), "true");
   assert.match(await page.getAttribute('[data-box="head"]', "class"), /c-blue/);
 
   const noScript = await browser.newPage({ javaScriptEnabled: false });

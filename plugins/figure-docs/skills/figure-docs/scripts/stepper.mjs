@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 同じ図の上の論点を「戻る／次へ」で切り替える HTML の断片を作る。
+// 1つの図の上の論点を、論点のボタンで切り替える HTML の断片を作る。
 // 使い方: node stepper.mjs SPEC.json [--out FILE] [--preview DIR]
 import fs from "node:fs";
 import path from "node:path";
@@ -49,7 +49,8 @@ export function build(spec) {
 .fs-src{font-size:13px;margin-bottom:8px}.fs-src b{font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:8px;padding:1px 6px;margin-right:6px;color:var(--text-secondary)}
 .fs ol{list-style:none;margin:0 0 4px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .fs button{font:inherit;font-size:12px;border:1px solid var(--border);background:transparent;color:var(--text-primary);border-radius:12px;padding:3px 10px;cursor:pointer}
-.fs li.on button{background:var(--surface-1);font-weight:600;border-color:var(--text-primary)}
+.fs ol button{color:var(--text-secondary)}
+.fs ol li.on button,.fs button[data-all].on{background:var(--text-primary);border-color:var(--text-primary);color:var(--surface-1);font-weight:700}
 .fs .pt{display:block;font-size:12px;color:var(--text-secondary);margin:2px 0 0 4px}
 .fs.js .pt{display:none}
 .fs svg{display:block;max-width:100%;height:auto;margin:6px auto}
@@ -69,32 +70,29 @@ export function build(spec) {
 .fs svg .fs-badge-bg{stroke:none}
 .fs svg .fs-badge{font-size:11px;font-weight:700}
 .fs-point{text-align:center;font-weight:700;font-size:16px;min-height:22px;margin-top:4px}
-.fs-nav{display:none;justify-content:center;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-secondary)}
-.fs.js .fs-nav{display:flex}
+.fs .fs-allbtn{display:none}
+.fs.js .fs-allbtn{display:block}
 </style>
 <div class="fs">
 <h3>${esc(spec.title)}</h3>${lead}${source}
-<ol>${list}</ol>
+<ol>${list}<li class="fs-allbtn"><button type="button" data-all>図ぜんぶを見る</button></li></ol>
 ${spec.svg}
 <div class="fs-point"></div>
-<div class="fs-nav"><button type="button" data-go="-1">戻る</button><span class="fs-pos"></span><button type="button" data-go="1">次へ</button><button type="button" data-all>図ぜんぶを見る</button></div>
 </div>
 <script>
 (()=>{const roots=document.querySelectorAll(".fs:not(.js)");const root=roots[roots.length-1];if(!root)return;root.classList.add("js");
 const steps=${JSON.stringify(steps)};const svg=root.querySelector("svg");const items=[...root.querySelectorAll("li[data-step]")];
 const NS="http://www.w3.org/2000/svg";let i=0,all=false;
 svg.querySelectorAll("[data-arrow] text").forEach(t=>{const b=t.getBBox();const r=document.createElementNS(NS,"rect");r.setAttribute("class","fs-pill");r.setAttribute("x",b.x-5);r.setAttribute("y",b.y-2);r.setAttribute("width",b.width+10);r.setAttribute("height",b.height+4);r.setAttribute("rx",4);t.before(r);});
-function draw(){root.classList.toggle("fs-step",!all);items.forEach((li,k)=>li.classList.toggle("on",!all&&k===i));
+function draw(){root.classList.toggle("fs-step",!all);items.forEach((li,k)=>{const on=!all&&k===i;li.classList.toggle("on",on);li.querySelector("button").setAttribute("aria-pressed",on);});const ab=root.querySelector("[data-all]");ab.classList.toggle("on",all);ab.setAttribute("aria-pressed",all);
 svg.querySelectorAll(".fs-badge,.fs-badge-bg").forEach(e=>e.remove());
 svg.querySelectorAll("[data-box],[data-arrow]").forEach(g=>{g.classList.remove("fs-on","fs-hot","fs-here");const isBox=g.dataset.box!==undefined;
 g.classList.remove("fs-dim");if(all)return;
 const id=isBox?g.dataset.box:g.dataset.arrow;const on=steps[i].focus.includes(id);
 g.classList.add(on?(isBox?"fs-on":"fs-hot"):"fs-dim");
 if(id===steps[i].here){g.classList.add("fs-here");if(steps[i].mark){const b=g.getBBox();const t=document.createElementNS(NS,"text");t.setAttribute("class","fs-badge");t.setAttribute("x",b.x+6);t.setAttribute("y",b.y+b.height+15);t.textContent=steps[i].mark;g.appendChild(t);const w=t.getBBox().width;const bg=document.createElementNS(NS,"rect");bg.setAttribute("class","fs-badge-bg");bg.setAttribute("x",b.x);bg.setAttribute("y",b.y+b.height+3);bg.setAttribute("width",w+12);bg.setAttribute("height",16);bg.setAttribute("rx",3);t.before(bg);}}});
-root.querySelector(".fs-point").textContent=all?"":items[i].querySelector(".pt").textContent;
-root.querySelector(".fs-pos").textContent=all?"全体":(i+1)+" / "+steps.length;}
+root.querySelector(".fs-point").textContent=all?"":items[i].querySelector(".pt").textContent;}
 items.forEach((li,k)=>li.querySelector("button").onclick=()=>{i=k;all=false;draw();});
-root.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{all=false;i=Math.min(steps.length-1,Math.max(0,i+(+b.dataset.go)));draw();});
 root.querySelector("[data-all]").onclick=()=>{all=true;draw();};draw();})();
 </script>`;
 }
