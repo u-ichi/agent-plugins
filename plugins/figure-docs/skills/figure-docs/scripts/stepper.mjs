@@ -4,7 +4,6 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const MAX_BOXES = 6;
 const HEX_OR_RGB = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;
 
 export function check(spec) {
@@ -16,7 +15,6 @@ export function check(spec) {
   const boxes = [...svg.matchAll(/data-box="([^"]+)"/g)].map((m) => m[1]);
   const arrows = [...svg.matchAll(/data-arrow="([^"]+)"/g)].map((m) => m[1]);
   const ids = new Set([...boxes, ...arrows]);
-  if (boxes.length > MAX_BOXES) errors.push(`四角が ${boxes.length} 個あります。${MAX_BOXES} 個までにするか、範囲を分けた図にします。`);
   const steps = spec.steps ?? [];
   if (steps.length < 2) errors.push("論点が2つ未満です。論点が1つなら切り替えずに図1枚にします。");
   steps.forEach((s, k) => {

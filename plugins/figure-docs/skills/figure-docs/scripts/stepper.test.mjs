@@ -21,13 +21,6 @@ test("論点が1つなら切り替えずに図1枚にするよう断る", () => 
   assert.match(check(spec).join("\n"), /論点が2つ未満/);
 });
 
-test("四角が7つあれば断る", () => {
-  const spec = example();
-  const extra = [1, 2, 3].map((n) => `<g data-box="x${n}" class="c-gray"><rect/></g>`).join("");
-  spec.svg = spec.svg.replace("</svg>", `${extra}</svg>`);
-  assert.match(check(spec).join("\n"), /四角が 7 個/);
-});
-
 test("図に無い要素を論点で指せば断る", () => {
   const spec = example();
   spec.steps[1].focus.push("nowhere");
