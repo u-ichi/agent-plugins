@@ -51,7 +51,7 @@ claude.ai、Agent Plugins に対応したツール、または skill 単体で�
 plugin.json                                  Agent Plugins の manifest
 .claude-plugin/plugin.json                   Claude Code の manifest
 rules/AGENTS.md                              Antigravity が毎ターン常に読む rule（frontmatter なし）
-output-styles/referent-first.md              Claude Code で plugin 有効時に常に付く output style（本文は rules/AGENTS.md と同じ）
+output-styles/referent-first.md              Claude Code で plugin 有効時に付く output style（ほかの強制の output style と併用時は除く。本文は rules/AGENTS.md と同じ）
 skills/referent-first/SKILL.md               skill の本文（基準、適用範囲、名前を探す先、短い物と対象文書の手順）
 ```
 
