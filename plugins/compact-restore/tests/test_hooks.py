@@ -118,7 +118,7 @@ class HookTests(unittest.TestCase):
         self.assertNotIn("project:x", details)
 
     def test_files_single_slot_and_missing_file(self):
-        body = "常設の指示の全文" + "A" * 8500 + "\n"
+        body = "0123456789" * 900
         instruction = self.file("instructions.md", body)
         missing = self.root / "missing.md"
         self.config(files=[str(missing), str(instruction)])
@@ -382,11 +382,33 @@ class HookTests(unittest.TestCase):
         self.assertIn("親セッションの発言", self.context(3))
 
     def test_bad_input_and_missing_transcript_fail_open(self):
-        self.file("config/broken.json", "{broken")
         self.append(BOUNDARY)
         for event in ("PreCompact", "SessionStart", "PreToolUse"):
             self.assertEqual(self.run_hook(event, raw="{broken"), "")
             self.assertEqual(self.run_hook(event, transcript_path=str(self.root / "missing")), "")
+
+    def test_malformed_config_keeps_defaults(self):
+        document = self.file("reference.md")
+        directory = self.root / "example/skills/long"
+        self.append(
+            user("設定なしでも戻る原文。"),
+            tool("Read", file_path=str(document)),
+            *skill("example:long", directory, "x" * 21000),
+            BOUNDARY,
+        )
+        summary = self.run_hook("PreCompact")
+        messages = self.context(3)
+        details = self.context(4)
+        self.assertIn("元の言語で原文のまま引用", summary)
+        self.assertIn("設定なしでも戻る原文。", messages)
+        self.assertIn("example:long", details)
+        self.assertIn(str(document), details)
+        self.assertIn("承認、その範囲、制約はそのまま有効", details)
+
+        self.file("config/broken.json", "{broken")
+        self.assertEqual(self.run_hook("PreCompact"), summary)
+        self.assertEqual(self.context(3), messages)
+        self.assertEqual(self.context(4), details)
         self.assertEqual(self.run_hook("PreToolUse"), "")
         self.assertEqual(self.context(0), "")
 
