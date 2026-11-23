@@ -31,7 +31,7 @@
 この plugin は、常に読む rule と対象文書で読む skill（`skills/referent-first/SKILL.md`）の2つで成り立つ。環境ごとの読まれ方は次のとおり。
 
 - **Antigravity**：`rules/AGENTS.md` を毎ターン常に読み込み、対象文書では `skills/referent-first/SKILL.md` を読む。
-- **Claude Code**：plugin の `rules/` は読まないが、plugin を有効にしている間は `output-styles/referent-first.md`（`force-for-plugin: true`）が output style として毎回の要求に常に付く。output style ではなくルールファイルとして使いたい場合は、プロジェクトの `CLAUDE.md` や `.claude/rules/` に `rules/AGENTS.md` と同じ文を置く。
+- **Claude Code**：plugin の `rules/` は読まない。ほかに `force-for-plugin: true` の output style を持つ plugin が有効でなければ、plugin を有効にしている間は `output-styles/referent-first.md`（`force-for-plugin: true`）が output style として毎回の要求に常に付く。`force-for-plugin: true` の output style を持つほかの plugin も有効なときは、Claude Code がそのうち1つだけを使い2つを合わせないため、`output-styles/referent-first.md` が使われないことがある。そのときと、output style でなくルールファイルとして使いたいときは、プロジェクトの `CLAUDE.md` か `.claude/rules/` に `rules/AGENTS.md` と同じ文を置く。
 - **claude.ai のチャットと Cowork**：`rules/AGENTS.md` も `output-styles/referent-first.md` も読まず、`skills/referent-first/SKILL.md` だけを読む。
 
 ## 入れ方
