@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 44 640 280" width="640" height="280">
+<defs><marker id="fs-ah" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" stroke="context-stroke" fill="context-stroke"/></marker></defs>
+<g data-arrow="start"><path class="arr" d="M2,82L18,82" marker-end="url(#fs-ah)"/></g>
+<g data-arrow="submit"><path class="arr" d="M180,82L238,82" marker-end="url(#fs-ah)"/><text class="ts" x="209" y="70" text-anchor="middle">出す</text></g>
+<g data-arrow="over"><path class="arr" d="M400,82L458,82" marker-end="url(#fs-ah)"/><text class="ts" x="429" y="70" text-anchor="middle">10万円超</text></g>
+<g data-arrow="bossok"><path class="arr" d="M290,104L290,258" marker-end="url(#fs-ah)"/><text class="ts" x="282" y="180" text-anchor="end">承認する</text></g>
+<g data-arrow="auto"><path class="arr" d="M350,104L350,258" marker-end="url(#fs-ah)"/><text class="ts" x="358" y="210">3日たつ</text></g>
+<g data-arrow="headok"><path class="arr" d="M530,104L396,258" marker-end="url(#fs-ah)"/><text class="ts" x="476" y="160">承認する</text></g>
+<g data-arrow="back"><path class="arr" d="M240,290L100,290L100,106" marker-end="url(#fs-ah)"/><text class="ts" x="170" y="310" text-anchor="middle">差し戻す</text></g>
+<g data-arrow="pay"><path class="arr" d="M400,282L458,282" marker-end="url(#fs-ah)"/><text class="ts" x="429" y="270" text-anchor="middle">支払う</text></g>
+<g data-box="draft" class="c-blue"><rect x="20" y="60" width="160" height="44" rx="8"/><text class="th" x="100" y="87" text-anchor="middle">申請</text></g>
+<g data-box="boss" class="c-blue"><rect x="240" y="60" width="160" height="44" rx="8"/><text class="th" x="320" y="87" text-anchor="middle">上長の承認</text></g>
+<g data-box="head" class="c-blue"><rect x="460" y="60" width="160" height="44" rx="8"/><text class="th" x="540" y="87" text-anchor="middle">部長の承認</text></g>
+<g data-box="acct" class="c-blue"><rect x="240" y="260" width="160" height="44" rx="8"/><text class="th" x="320" y="287" text-anchor="middle">経理の確認</text></g>
+<g data-box="paid" class="c-green"><rect x="460" y="260" width="160" height="44" rx="8"/><text class="th" x="540" y="287" text-anchor="middle">支払い済み</text></g>
+</svg>
