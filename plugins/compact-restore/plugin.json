@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "compact-restore",
+  "description": "Claude Code の compact 後に文脈から消える常設の指示、読んだファイル、skill、ユーザー発言原文、tool 入力、承認範囲を hook で戻し、必要な再読み込みが完了するまで他の tool 実行を止める plugin。PreCompact で要約への指示も追加する。",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": ["claude-code", "compact", "hooks", "restore", "context"]
+}
