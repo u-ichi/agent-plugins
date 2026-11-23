@@ -125,12 +125,29 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.hook("PreToolUse"), "")
 
     def test_one_file_frame_and_missing_file(self):
-        body = ("原文" * 4749) + "\r\n"
-        path = self.file("rules.md", body)
+        path = self.file("rules.md", "")
         self.settings(files=[str(self.root / "missing.md"), path])
         self.append(BOUNDARY)
-        self.assertEqual(self.context(0), body)
-        self.assertEqual(self.context(1), "")
+        for length in (9000, 9500):
+            with self.subTest(length=length):
+                body = ("原文" * ((length - 2) // 2)) + "\r\n"
+                self.file("rules.md", body)
+                self.assertEqual(self.context(0), body)
+                self.assertEqual(self.context(1), "")
+                self.assertEqual(self.context(2), "")
+                self.assertEqual(self.hook("PreToolUse"), "")
+
+    def test_file_above_frame_limit_is_split(self):
+        body = "原" * 9500 + "末"
+        path = self.file("rules.md", body)
+        self.settings(files=[path])
+        self.append(BOUNDARY)
+        parts = []
+        for i in range(2):
+            header, content = self.context(i).split("\n", 1)
+            self.assertIn(f"{i + 1}/2", header)
+            parts.append(content)
+        self.assertEqual("".join(parts), body)
         self.assertEqual(self.context(2), "")
         self.assertEqual(self.hook("PreToolUse"), "")
 
@@ -344,9 +361,13 @@ class HookTests(unittest.TestCase):
 
     def test_fail_open_and_skip_broken_settings_and_jsonl_lines(self):
         path = self.file("rules/read.md", "規則")
+        self.append(user("最初の依頼"), call("Read", file_path=path), BOUNDARY)
+        defaults = (self.hook("PreCompact"), self.context(3), self.context(4))
+        self.assertTrue(all(defaults))
         (self.config / "10.json").write_text('{"files": [', encoding="utf-8")
-        self.append(BOUNDARY)
+        self.assertEqual((self.hook("PreCompact"), self.context(3), self.context(4)), defaults)
         self.assertEqual(self.context(0), "")
+        self.assertEqual(self.hook("PreToolUse"), "")
         self.assertEqual(self.hook("PreToolUse", raw="{"), "")
         self.assertEqual(self.hook("PreToolUse", transcript_path=str(self.root / "missing.jsonl")), "")
         self.assertEqual(self.context(4, transcript_path=str(self.root / "missing.jsonl")), "")
