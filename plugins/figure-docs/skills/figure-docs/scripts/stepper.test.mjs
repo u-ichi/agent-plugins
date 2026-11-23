@@ -36,7 +36,7 @@ test("図に無い要素を論点で指せば断る", () => {
 
 test("色の値を直接書いた図は断る", () => {
   const spec = example();
-  spec.svg = spec.svg.replace('class="c-gray"', 'fill="#ff0000" class="c-gray"');
+  spec.svg = spec.svg.replace('class="c-blue"', 'fill="#ff0000" class="c-blue"');
   assert.match(check(spec).join("\n"), /色の値/);
 });
 
@@ -48,25 +48,29 @@ try {
 test("ボタンで論点が切り替わり、スクリプトが動かなくても論点の一覧が読める", { skip: !chromium && "playwright が無い" }, async () => {
   const html = build(example());
   const browser = await chromium.launch();
+  try {
   const page = await browser.newPage();
-  const cls = (id) => page.getAttribute(`[data-arrow="${id}"]`, "class");
+  const cls = async (id) => (await page.getAttribute(`[data-arrow="${id}"]`, "class")) ?? "";
 
   await page.setContent(preview(html, "light"));
   assert.match(await cls("lockedin"), /fs-hot/);
-  assert.match(await cls("unlock"), /fs-dim/);
+  assert.doesNotMatch(await cls("unlock"), /fs-hot/);
   assert.equal(await page.textContent(".fs-point"), "ロック中でも正しく入力するとログインできてしまう");
   assert.equal(await page.textContent(".fs-badge"), "ここから入れてしまう");
 
   await page.click("[data-go='1']");
   assert.match(await cls("unlock"), /fs-hot/);
-  assert.match(await cls("lockedin"), /fs-dim/);
+  assert.doesNotMatch(await cls("lockedin"), /fs-hot/);
   assert.equal(await page.textContent(".fs-pos"), "2 / 2");
 
   await page.click("[data-all]");
-  assert.equal(await page.locator(".fs-dim").count(), 0);
+  assert.equal(await page.locator(".fs-hot").count(), 0);
+  assert.match(await page.getAttribute('[data-box="reset"]', "class"), /c-blue/);
 
   const noScript = await browser.newPage({ javaScriptEnabled: false });
   await noScript.setContent(preview(html, "light"));
   assert.equal(await noScript.locator(".pt:visible").count(), 2);
-  await browser.close();
+  } finally {
+    await browser.close();
+  }
 });

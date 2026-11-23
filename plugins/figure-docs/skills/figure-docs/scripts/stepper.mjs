@@ -57,16 +57,15 @@ export function build(spec) {
 .fs svg{display:block;max-width:100%;height:auto;margin:6px auto}
 .fs svg [data-box] text:not(.fs-badge){font-size:15px;font-weight:700}
 .fs svg .fs-pill{fill:var(--surface-1);stroke:var(--border)}
-.fs.fs-step svg [data-box]:not(.fs-dim) rect:not(.fs-badge-bg){stroke:var(--text-primary)!important;stroke-width:1.5px}
-.fs svg [data-box].fs-dim rect{fill:transparent!important}
-.fs svg [data-box].fs-dim text{fill:var(--text-muted)!important}
-.fs svg [data-arrow].fs-dim{opacity:.35}
-.fs svg .fs-hot .arr,.fs svg .fs-hot path{stroke:var(--text-primary);stroke-width:2px}
-.fs svg .fs-hot text{font-weight:700;fill:var(--text-primary)}
-.fs svg .fs-hot .fs-pill{stroke:var(--text-primary);stroke-width:1.2px}
-.fs.fs-step svg [data-box].fs-here rect:not(.fs-badge-bg){stroke:var(--text-warning)!important;stroke-width:3px!important}
-.fs svg .fs-badge-bg{fill:var(--text-warning);stroke:none}
-.fs svg .fs-badge{fill:var(--surface-1);font-size:11px;font-weight:700}
+.fs svg [data-arrow] path{stroke:var(--fs-line)}
+.fs svg [data-arrow] text{fill:var(--fs-line)}
+.fs svg .fs-hot path{stroke-width:2px}
+.fs svg .fs-hot text{font-weight:700}
+.fs svg .fs-hot .fs-pill{stroke:var(--fs-line);stroke-width:1.2px}
+.fs.fs-step svg [data-box].fs-on :is(rect,polygon,circle):not(.fs-badge-bg){stroke-width:2px}
+.fs.fs-step svg [data-box].fs-here :is(rect,polygon,circle):not(.fs-badge-bg){stroke-width:3.5px}
+.fs svg .fs-badge-bg{stroke:none}
+.fs svg .fs-badge{font-size:11px;font-weight:700}
 .fs-point{text-align:center;font-weight:700;font-size:16px;min-height:22px;margin-top:4px}
 .fs-nav{display:none;justify-content:center;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-secondary)}
 .fs.js .fs-nav{display:flex}
@@ -82,12 +81,17 @@ ${spec.svg}
 (()=>{const roots=document.querySelectorAll(".fs:not(.js)");const root=roots[roots.length-1];if(!root)return;root.classList.add("js");
 const steps=${JSON.stringify(steps)};const svg=root.querySelector("svg");const items=[...root.querySelectorAll("li[data-step]")];
 const NS="http://www.w3.org/2000/svg";let i=0,all=false;
+const line={};for(const c of ["c-blue","c-coral","c-gray"]){const g=document.createElementNS(NS,"g");g.setAttribute("class",c);const r=document.createElementNS(NS,"rect");g.appendChild(r);svg.appendChild(g);line[c]=getComputedStyle(r).stroke;g.remove();}
+svg.querySelectorAll("[data-box]").forEach(g=>{g.dataset.color=[...g.classList].find(x=>x.startsWith("c-"))??"";});
 svg.querySelectorAll("[data-arrow] text").forEach(t=>{const b=t.getBBox();const r=document.createElementNS(NS,"rect");r.setAttribute("class","fs-pill");r.setAttribute("x",b.x-5);r.setAttribute("y",b.y-2);r.setAttribute("width",b.width+10);r.setAttribute("height",b.height+4);r.setAttribute("rx",4);t.before(r);});
+const recolor=(g,c)=>{[...g.classList].filter(x=>x.startsWith("c-")).forEach(x=>g.classList.remove(x));if(c)g.classList.add(c);};
 function draw(){root.classList.toggle("fs-step",!all);items.forEach((li,k)=>li.classList.toggle("on",!all&&k===i));
 svg.querySelectorAll(".fs-badge,.fs-badge-bg").forEach(e=>e.remove());
-svg.querySelectorAll("[data-box],[data-arrow]").forEach(g=>{g.classList.remove("fs-dim","fs-hot","fs-here");if(all)return;
-const id=g.dataset.box??g.dataset.arrow;const on=steps[i].focus.includes(id);
-if(g.dataset.arrow!==undefined)g.classList.add(on?"fs-hot":"fs-dim");else if(!on)g.classList.add("fs-dim");
+svg.querySelectorAll("[data-box],[data-arrow]").forEach(g=>{g.classList.remove("fs-on","fs-hot","fs-here");const isBox=g.dataset.box!==undefined;
+if(all){if(isBox)recolor(g,g.dataset.color);else g.style.setProperty("--fs-line",line["c-blue"]);return;}
+const id=isBox?g.dataset.box:g.dataset.arrow;const on=steps[i].focus.includes(id);
+if(isBox){recolor(g,on?"c-coral":"c-gray");if(on)g.classList.add("fs-on");}
+else{g.style.setProperty("--fs-line",line[on?"c-coral":"c-gray"]);if(on)g.classList.add("fs-hot");}
 if(id===steps[i].here){g.classList.add("fs-here");if(steps[i].mark){const b=g.getBBox();const t=document.createElementNS(NS,"text");t.setAttribute("class","fs-badge");t.setAttribute("x",b.x+6);t.setAttribute("y",b.y+b.height+15);t.textContent=steps[i].mark;g.appendChild(t);const w=t.getBBox().width;const bg=document.createElementNS(NS,"rect");bg.setAttribute("class","fs-badge-bg");bg.setAttribute("x",b.x);bg.setAttribute("y",b.y+b.height+3);bg.setAttribute("width",w+12);bg.setAttribute("height",16);bg.setAttribute("rx",3);t.before(bg);}}});
 root.querySelector(".fs-point").textContent=all?"":items[i].querySelector(".pt").textContent;
 root.querySelector(".fs-pos").textContent=all?"全体":(i+1)+" / "+steps.length;}
@@ -99,13 +103,13 @@ root.querySelector("[data-all]").onclick=()=>{all=true;draw();};draw();})();
 
 // 道具の外で表示を確かめるためのページ。道具が決める色の変数を、明るい画面と暗い画面の2通りで仮に置く。
 const THEMES = {
-  light: "--text-primary:#1f1f1f;--text-secondary:#5f5f5f;--text-muted:#9a9a9a;--text-warning:#b26b00;--surface-1:#f1f1f1;--border:#c9c9c9;background:#ffffff",
-  dark: "--text-primary:#eeeeee;--text-secondary:#aaaaaa;--text-muted:#6a6a6a;--text-warning:#f2c94c;--surface-1:#2a2a2a;--border:#555555;background:#1e1e1e",
+  light: "--text-primary:#1d2430;--text-secondary:#5d6778;--text-muted:#9aa4b5;--text-accent:#2563eb;--surface-1:#f8f9fb;--border:#d5dae2;--blue-fill:#dbe8fd;--blue-line:#2563eb;--blue-text:#1d3f8f;--coral-fill:#fde5d6;--coral-line:#c2410c;--coral-text:#9a3412;--gray-fill:#f1f3f6;--gray-line:#9aa4b5;--green-fill:#dcf3e3;--green-line:#15803d;--green-text:#14532d;background:#ffffff",
+  dark: "--text-primary:#e8ebf0;--text-secondary:#a3acba;--text-muted:#5d6778;--text-accent:#8db4f7;--surface-1:#252a33;--border:#3d4450;--blue-fill:#1c2e4d;--blue-line:#5b8ef0;--blue-text:#c6d8fb;--coral-fill:#4a2616;--coral-line:#f8b48a;--coral-text:#fbd0b4;--gray-fill:#2b3039;--gray-line:#5d6778;--green-fill:#173a24;--green-line:#4ade80;--green-text:#bbf7d0;background:#1a1d23",
 };
 export function preview(fragment, theme) {
   return `<!doctype html><meta charset="utf-8"><style>body{${THEMES[theme]};margin:0;padding:16px;width:600px}
 .t{font-size:14px;fill:var(--text-primary)}.ts{font-size:12px;fill:var(--text-secondary)}.th{font-size:14px;font-weight:500;fill:var(--text-primary)}
-.arr{stroke:var(--text-secondary);fill:none}[class*="c-"]>rect{fill:var(--surface-1);stroke:var(--border)}</style>${fragment}`;
+.arr{stroke:var(--text-secondary);fill:none}.c-blue>:is(rect,polygon){fill:var(--blue-fill);stroke:var(--blue-line)}.c-blue>text{fill:var(--blue-text)}.c-coral>:is(rect,polygon){fill:var(--coral-fill);stroke:var(--coral-line)}.c-coral>text{fill:var(--coral-text)}.c-gray>:is(rect,polygon){fill:var(--gray-fill);stroke:var(--gray-line)}.c-gray>text{fill:var(--text-muted)}.c-green>:is(rect,polygon){fill:var(--green-fill);stroke:var(--green-line)}.c-green>text{fill:var(--green-text)}</style>${fragment}`;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
