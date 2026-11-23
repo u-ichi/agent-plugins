@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "compact-restore",
+  "description": "Claude Code が compact した後に、設定された指示や会話の記録を戻し、必要なファイルの読み直しと skill の呼び直しを促す plugin。",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "compact",
+    "hooks",
+    "context"
+  ]
+}
