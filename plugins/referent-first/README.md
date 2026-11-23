@@ -10,7 +10,7 @@
 
 ## 適用範囲
 
-`SKILL.md` の `description` には「返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書くとき」と「コードや画面の新しい名前を決めるとき」を記している。これらに該当する作業や、ユーザーが示した推論の順序を見出しやラベルにまとめるときにエージェントがこの skill を読み込む。ユーザー原文の引用、単純な機械編集、既存名だけを再利用する箇所、表現だけの推敲は対象外。
+`SKILL.md` の `description` には「返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書く前」と「コードや画面の新しい名前を決める前」に必ず呼ぶことを記している。これらに該当する作業や、ユーザーが示した推論の順序を見出しやラベルにまとめるときにエージェントがこの skill を読み込む。ユーザー原文の引用、単純な機械編集、既存名だけを再利用する箇所、表現だけの推敲は対象外。
 
 ## 名前を探す先と造語が出やすい箇所
 
@@ -31,8 +31,8 @@
 この plugin は、常に読む rule と対象文書で読む skill（`skills/referent-first/SKILL.md`）の2つで成り立つ。環境ごとの読まれ方は次のとおり。
 
 - **Antigravity**：`rules/AGENTS.md` を毎ターン常に読み込み、対象文書では `skills/referent-first/SKILL.md` を読む。
-- **Claude Code**：plugin の `rules/` は読まない。ほかに `force-for-plugin: true` の output style を持つ plugin が有効でなければ、plugin を有効にしている間は `output-styles/referent-first.md`（`force-for-plugin: true`）が output style として毎回の要求に常に付く。`force-for-plugin: true` の output style を持つほかの plugin も有効なときは、Claude Code がそのうち1つだけを使い2つを合わせないため、`output-styles/referent-first.md` が使われないことがある。そのときと、output style でなくルールファイルとして使いたいときは、プロジェクトの `CLAUDE.md` か `.claude/rules/` に `rules/AGENTS.md` と同じ文を置く。
-- **claude.ai のチャットと Cowork**：`rules/AGENTS.md` も `output-styles/referent-first.md` も読まず、`skills/referent-first/SKILL.md` だけを読む。
+- **Claude Code**：plugin の `rules/` は読まない。skill の description に「返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書く前に必ずこの skill を呼ぶ」と書き、書き始める前に `skills/referent-first/SKILL.md` を読ませる。output style は使わない（Claude Code が使う output style は1つだけで、`force-for-plugin: true` を付けると利用者が選んだ output style とほかの plugin の output style を置き換えるため）。
+- **claude.ai のチャットと Cowork**：`rules/AGENTS.md` を読まず、`skills/referent-first/SKILL.md` だけを読む。
 
 ## 入れ方
 
@@ -51,7 +51,6 @@ claude.ai、Agent Plugins に対応したツール、または skill 単体で�
 plugin.json                                  Agent Plugins の manifest
 .claude-plugin/plugin.json                   Claude Code の manifest
 rules/AGENTS.md                              Antigravity が毎ターン常に読む rule（frontmatter なし）
-output-styles/referent-first.md              Claude Code で plugin 有効時に付く output style（ほかの強制の output style と併用時は除く。本文は rules/AGENTS.md と同じ）
 skills/referent-first/SKILL.md               skill の本文（基準、適用範囲、名前を探す先、短い物と対象文書の手順）
 ```
 
