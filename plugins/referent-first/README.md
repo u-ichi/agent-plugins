@@ -10,7 +10,7 @@
 
 ## 適用範囲
 
-`SKILL.md` の `description` には「返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書く前」と「コードや画面の新しい名前を決める前」に必ず呼ぶことを記している。これらに該当する作業や、ユーザーが示した推論の順序を見出しやラベルにまとめるときにエージェントがこの skill を読み込む。ユーザー原文の引用、単純な機械編集、既存名だけを再利用する箇所、表現だけの推敲は対象外。
+`SKILL.md` の `description` には「ユーザーへの返信、進捗チェックリスト、PR の説明、issue、依頼文、設計資料、調査報告、対策案を書くときは、毎回、書き始める前に必ず呼ぶ」ことと「コードや画面の新しい名前を決める前にも呼ぶ」ことを記している。これらに該当する作業や、ユーザーが示した推論の順序を見出しやラベルにまとめるときにエージェントがこの skill を読み込む。ユーザー原文の引用、単純な機械編集、既存名だけを再利用する箇所、表現だけの推敲は対象外。
 
 ## 名前を探す先と造語が出やすい箇所
 
@@ -31,7 +31,7 @@
 この plugin は、常に読む rule と対象文書で読む skill（`skills/referent-first/SKILL.md`）の2つで成り立つ。環境ごとの読まれ方は次のとおり。
 
 - **Antigravity**：`rules/AGENTS.md` を毎ターン常に読み込み、対象文書では `skills/referent-first/SKILL.md` を読む。
-- **Claude Code**：plugin の `rules/` は読まない。skill の description に「返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案を書く前に必ずこの skill を呼ぶ」と書き、書き始める前に `skills/referent-first/SKILL.md` を読ませる。output style は使わない（Claude Code が使う output style は1つだけで、`force-for-plugin: true` を付けると利用者が選んだ output style とほかの plugin の output style を置き換えるため）。
+- **Claude Code**：plugin の `rules/` は読まない。skill の description に、返信や文書を毎回書き始める前に必ずこの skill を呼ぶことを書き、書き始める前に `skills/referent-first/SKILL.md` を読ませる。output style は使わない（Claude Code が使う output style は1つだけで、`force-for-plugin: true` を付けると利用者が選んだ output style とほかの plugin の output style を置き換えるため）。
 - **claude.ai のチャットと Cowork**：`rules/AGENTS.md` を読まず、`skills/referent-first/SKILL.md` だけを読む。
 
 ## 入れ方
