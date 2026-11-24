@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "claude-compact-restore",
+  "description": "Claude Code の compact 後に、claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code が付け直さなかった skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。",
+  "author": {
+    "name": "u-ichi"
+  },
+  "homepage": "https://github.com/u-ichi/agent-plugins",
+  "repository": "https://github.com/u-ichi/agent-plugins",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "compact",
+    "hooks"
+  ]
+}
