@@ -116,4 +116,4 @@ python3 -m unittest discover -s plugins/claude-compact-restore/tests
 ### この plugin の hook の再確認
 
 1. `python3 -m unittest discover -s plugins/claude-compact-restore/tests` を実行する。
-2. プロセスの再開をはさんだ compact 後の会話の記録 JSONL を使い、対象の skill パターンを設定した状態で hook に読ませ、付け直されなかった skill だけが返ること、呼び直し後の記録では何も出ないこと、処理時間を確認する。
+2. プロセスの再開をはさんだ compact 後の会話の記録 JSONL をそのまま hook に読ませ、compact の前に呼んだすべての skill のうち付け直されなかったものだけが返ること、呼び直し後の記録では何も出ないこと、処理時間を確認する。

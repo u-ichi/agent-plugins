@@ -1,6 +1,6 @@
 {
   "name": "claude-compact-restore",
-  "description": "Claude Code の compact で起きる原因の違う2つの問題に対処し、compact の仕様で無くなる claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code の不具合で付け直されない skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。",
+  "description": "Claude Code の compact で起きる、原因の違う2つの問題に対処する plugin で、compact の仕様で要約の言い換えだけになる claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文（会話の最初のメッセージから取る）と、全文を読んだ plugin の Markdown の今の本文を戻し、プロセスの再開をはさんだ compact の後に Claude Code の不具合で付け直されない skill について、Skill ツールでの呼び直しを求める。設定は要らず、入れて有効にするだけで動き、プロジェクト指示を戻すのは claude.ai のプロジェクトから動くセッションだけで、ほかはどの Claude Code でも動く。",
   "author": {
     "name": "u-ichi"
   },
