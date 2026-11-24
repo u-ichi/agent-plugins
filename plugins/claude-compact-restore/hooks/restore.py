@@ -147,8 +147,11 @@ def missing_skills(path, patterns):
     return [name for name in missing if name not in qualified_short_names]
 
 
+SHOWN_WHILE_CALLING = {"mcp__hearthbot__post_message", "mcp__hearthbot__post_widget"}
+
+
 def restore_skills(event):
-    if event.get("tool_name") in ("Skill", "ToolSearch"):
+    if event.get("tool_name") in ("Skill", "ToolSearch", *SHOWN_WHILE_CALLING):
         return
     path = event.get("transcript_path")
     if not isinstance(path, str) or not path:
