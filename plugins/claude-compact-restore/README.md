@@ -1,54 +1,39 @@
 # claude-compact-restore
 
-Claude Code の compact の後に、claude.ai のプロジェクト（Claude Projects）の「プロジェクト指示」の全文と、Claude Code が付け直さなかった skill の本文を補う plugin である。この plugin は hook だけで成り立ち、skill は持たない。hook に対応するのは Claude Code である。
+Claude Code の compact で起きる、原因の違う2つの問題に対処する plugin である。この plugin は hook だけで成り立ち、skill は持たない。hook に対応するのは Claude Code である。
 
-プロジェクト指示は claude.ai のプロジェクト（Claude Projects）だけにある物である。プロジェクト指示の入れ直しは、claude.ai のプロジェクトから動く Claude Code のセッション向けの処理であり、プロジェクトを使わない Claude Code では設定しなくてよい（`CLAUDE.md` は Claude Code が compact の後に入れ直すため）。skill の呼び直しは、どの Claude Code でも使える。
+この plugin が対処するのは次の2つだけである。
+
+1. compact の仕様によって、claude.ai のプロジェクト（Claude Projects）の「プロジェクト指示」の全文が会話から無くなる。不具合ではなく、compact が会話全体を要約に置き換え、プロジェクト指示は会話の最初のメッセージにしか入らないため、要約の中の言い換えだけが残る。プロセスの再開が無くても compact のたびに起きる。この plugin は compact の直後に、プロジェクト指示を書いたファイルを読み込んで全文を入れ直す。`CLAUDE.md` は Claude Code が compact の後に入れ直すので対象外であり、プロジェクトを使わない Claude Code では設定しなくてよい。
+2. Claude Code の不具合によって、プロセスの再開をはさんだ compact で、Skill ツールで呼んだ skill の本文が付け直されない。この plugin は、付け直されなかった skill について Skill ツールでの呼び直しを求める（呼び直すまで、Skill と ToolSearch 以外の tool 呼び出しを止める）。こちらはどの Claude Code でも使える。
 
 Python 3.9 以上で動作し、標準ライブラリだけを使う。hook は失敗しても会話を止めず、設定や transcript が読めないときは何もしない。
 
-## 補うもの
+## compact の仕様でプロジェクト指示の全文が無くなる問題
 
-この plugin が補うのは次の2つだけである。
+### 何が起きるかと原因
 
-1. compact の直後に、プロジェクト指示を書いたファイルを読み込み、プロジェクト指示の全文を入れ直す（claude.ai のプロジェクトから動く Claude Code のセッション向け）。
-2. compact の後に Claude Code が付け直さなかった skill について、Skill ツールでの呼び直しを求める。呼び直すまで、Skill と ToolSearch 以外の tool 呼び出しを止める。
+この処理が入れ直すのは、claude.ai のプロジェクト（Claude Projects）だけにある「プロジェクト指示」である。compact が起きると、プロジェクト指示の全文が会話から無くなり、書き方などのルールが落ちる。
 
-### プロジェクト指示の入れ直し
+これは不具合ではなく、compact の仕様（要約の性質）によるものである。compact は会話全体を要約に置き換え、プロジェクト指示は会話の最初のメッセージにしか入らないため、要約の中の言い換えだけが残る。プロセスの再開が無くても compact のたびに起きる。
 
-この処理が入れ直すのは、claude.ai のプロジェクト（Claude Projects）の「プロジェクト指示」である。プロジェクト指示は会話の最初のメッセージにしか入らず、compact の要約で言い換えられて短くなるため、書き方などのルールが落ちる。これは不具合ではなく要約の性質によるものである。
+Claude Code は `CLAUDE.md` を compact の後に自分で入れ直す。そのため `CLAUDE.md` はこの plugin の対象ではなく、プロジェクトを使わない Claude Code ではこの処理を設定しなくてよい。プロジェクト指示の入れ直しは、claude.ai のプロジェクトから動く Claude Code のセッション向けの処理である。
 
-Claude Code は `CLAUDE.md` を compact の後に自分で入れ直す。そのため `CLAUDE.md` はこの plugin の対象ではなく、プロジェクトを使わない Claude Code ではこの処理を設定しなくてよい。
+### この plugin の対処
 
 Claude Code はプロジェクト指示をファイルとして持たないため、利用者はプロジェクト指示と同じ中身を書いたファイルを用意し、そのパスを設定する。Claude Code の compact では PreCompact、要約の作成、SessionStart（`source` が `compact`）、PostCompact の順に処理が進む。この plugin は SessionStart（`compact`）の hook でプロジェクト指示を書いたファイルを読み込み、前置きを付けてプロジェクト指示の全文を追加の文脈として出力する。
 
 Claude Code は hook 1つの追加の文脈を UTF-16 の単位で 10,000 文字で切る。そのため、9,000 単位を超えるときは2つの hook に分けて出力する。およそ 18,000 単位を超え、2つでも入らない長さのときは、プロジェクト指示を書いたファイルを Read で読み直すよう求める文だけを出す。
 
-### 付け直されなかった skill の呼び直し
+### 測定結果
 
-後述する Claude Code の不具合により、プロセスの再開をはさんだ compact で skill の本文が付け直されないことがある。
+合成の場面での測定（169 回）では、プロジェクト指示の全文を入れ直すことで、compact の後のルール違反が平均 13.7 件から 1.5 件に減った。
 
-この plugin では PreToolUse の hook が transcript を読み込み、最後の compact の境目より前に呼んだ skill のうち、次の条件をすべて満たすものについて Skill ツールでの呼び直しを求める。
+## Claude Code の不具合で skill の本文が付け直されない問題
 
-- 設定のパターンに合う
-- 境目の後の `invoked_skills` に無い
-- 境目の後に呼び直されてもいない
+### 何が起きるかと原因
 
-呼び直すまでは Skill と ToolSearch 以外の tool 呼び出しを止める。すでに `invoked_skills` にある skill は求めないため、本文が二重に入ることはない。サブエージェントの呼び出しは対象外である。
-
-### 補わないもの
-
-次の4つは補わない。
-
-- 利用者の発言の再掲
-- 読んだファイルの読み直し
-- 要約を作るモデルへの指示
-- 進捗の一覧の再掲
-
-合成の場面での測定（169 回）では、これらを補っても compact の後のルール違反の数に差が出なかった。プロジェクト指示の全文の入れ直しは、同じ測定でルール違反が平均 13.7 件から 1.5 件に減った。
-
-## Claude Code の compact の不具合
-
-Claude Code 2.1.328、2.1.330、2.1.331 で確認した不具合である。
+Claude Code 2.1.328、2.1.330、2.1.331 で確認した Claude Code の不具合である。プロセスの再開をはさんだ compact で、Skill ツールで呼んだ skill の本文が付け直されない。
 
 Claude Code の compact は、プロセスが持つ「呼んだ skill の一覧」にある skill の本文を compact の後に付け直す。プロセスを終了して同じ会話を再開（resume）すると、この一覧は直前の compact で付け直した内容（それまで compact が無ければ空）に戻る。そのため、再開より前に呼んだ skill が一覧から落ち、次の compact で付け直されない。
 
@@ -69,6 +54,18 @@ Claude Code の中のどの処理を直すべきかは外からは分からな�
 再開だけでは skill の本文が会話に残るため害は出ない。同じプロセスの中で compact だけを行う場合も、呼んだ skill は全部付け直される。
 
 この不具合は Claude Code のものであり、プロセスの終了と再開が多い使い方ほど起きやすい。claude.ai のプロジェクト（Claude Projects）では、返信を終えて次の入力を待つ間に Claude Code のプロセスが終了し、次の入力で会話を再開する。観測した会話では、返信を終えてから次の入力まで6分半以上空いた6回の全部で、プロセスが終了して再開していた。`claude -p --resume` を繰り返す使い方や、Claude Code を閉じて `--resume` で続ける使い方でも同じ順になる。
+
+### この plugin の対処
+
+この処理は、どの Claude Code でも使える。
+
+PreToolUse の hook が transcript を読み込み、最後の compact の境目より前に呼んだ skill のうち、次の条件をすべて満たすものについて Skill ツールでの呼び直しを求める。
+
+- 設定のパターンに合う
+- 境目の後の `invoked_skills` に無い
+- 境目の後に呼び直されてもいない
+
+呼び直すまでは Skill と ToolSearch 以外の tool 呼び出しを止める。すでに `invoked_skills` にある skill は求めないため、本文が二重に入ることはない。サブエージェントの呼び出しは対象外である。
 
 ### 観測結果
 
@@ -101,7 +98,7 @@ Claude Code の中のどの処理を直すべきかは外からは分からな�
 
 作業の一覧（TaskCreate で作る物）、plan mode の計画、動いているバックグラウンドの処理の一覧は欠落するかどうか未確認である。作業の一覧については、2つ目の会話では5件とも compact の前に完了しており、3つ目の会話では未完了の作業が1件ある状態で compact したが、作業の一覧にあたる物は compact の後に付いていなかった。ただし Claude Code が作業の一覧を compact の後に付け直す作りかどうかが分からないため、欠落とは判断できない。plan mode の計画と動いているバックグラウンドの処理の一覧は、観測した会話では compact の時点で使っていなかった。
 
-この plugin が補うのは skill だけである。未確認の物は補っていない。
+この不具合への対処としてこの plugin が補うのは skill だけである。未確認の物は補っていない。
 
 ### 確認の方法
 
@@ -112,6 +109,17 @@ Claude Code の更新後にこの不具合が残っているかは、会話の�
 3. 同じ `compact_boundary` より前にある assistant の `tool_use` のうち、`name` が `Skill` の行の `input.skill` と比べる。
 
 呼んだのに一覧に無い skill が、付け直されなかった skill である。
+
+## 補わないもの
+
+次の4つは補わない。
+
+- 利用者の発言の再掲
+- 読んだファイルの読み直し
+- 要約を作るモデルへの指示
+- 進捗の一覧の再掲
+
+合成の場面での測定（169 回）では、これらを補っても compact の後のルール違反の数に差が出なかった。
 
 ## 設定
 
@@ -153,11 +161,11 @@ Claude Code では次のコマンドを順に実行する。
 
 claude.ai では https://claude.ai/customize/plugins の **Add** > **Add marketplace** で `u-ichi/agent-plugins` を追加して有効にする。
 
-## Claude Code 側で直ったら
+## Claude Code 側で skill の不具合が直ったら
 
 プロセスの再開をはさんだ compact でも、呼んだ skill が全部 `invoked_skills` に入るようになれば、skill の呼び直しを求める処理は何も求めなくなる。この plugin は `invoked_skills` を見て判断するため、入れたままでも害は無い。
 
-そのときは `skills`（環境変数を使っている場合は `CLAUDE_COMPACT_RESTORE_SKILLS`）の設定を消してよい。プロジェクト指示の入れ直しは不具合とは別なので残す。
+そのときは `skills`（環境変数を使っている場合は `CLAUDE_COMPACT_RESTORE_SKILLS`）の設定を消してよい。プロジェクト指示の入れ直しは compact の仕様への対処であり、不具合とは別なので残す。
 
 ## テスト
 
