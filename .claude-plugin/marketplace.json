@@ -20,7 +20,7 @@
     {
       "name": "claude-compact-restore",
       "source": "./plugins/claude-compact-restore",
-      "description": "Claude Code の compact 後に、claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code が付け直さなかった skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。"
+      "description": "Claude Code の compact で起きる原因の違う2つの問題に対処し、compact の仕様で無くなる claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code の不具合で付け直されない skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。"
     }
   ]
 }
