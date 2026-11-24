@@ -134,7 +134,13 @@ class HookTests(unittest.TestCase):
         self.assertIsNone(self.pre_tool_use(rows))
         self.env["CLAUDE_COMPACT_RESTORE_SKILLS"] = "orchard:harvest,orchard:prune"
         self.assert_denied_for(self.pre_tool_use(rows), "orchard:prune")
-        for overrides in ({"agent_id": "worker"}, {"tool_name": "Skill"}, {"tool_name": "ToolSearch"}):
+        for overrides in (
+            {"agent_id": "worker"},
+            {"tool_name": "Skill"},
+            {"tool_name": "ToolSearch"},
+            {"tool_name": "mcp__hearthbot__post_message"},
+            {"tool_name": "mcp__hearthbot__post_widget"},
+        ):
             with self.subTest(overrides=overrides):
                 self.assertIsNone(self.pre_tool_use(rows, **overrides))
 
