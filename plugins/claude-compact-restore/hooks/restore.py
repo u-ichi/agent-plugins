@@ -1,4 +1,5 @@
 import fcntl
+from functools import lru_cache
 import hashlib
 import json
 import os
@@ -43,6 +44,12 @@ class Transcript(NamedTuple):
     after: dict
     attached: set
     files: set
+
+
+class SyncedFile(NamedTuple):
+    account: Path
+    plugin: str
+    relative: Path
 
 
 def fields(value):
@@ -233,11 +240,11 @@ def scan_transcript(event):
                             for base in skill_bases(first_line, cwd):
                                 path = real_path(base / "SKILL.md")
                                 if path is not None:
-                                    files.add(str(path))
+                                    files.add(markdown_identity(path))
                 elif kind == "file" and isinstance(attachment.get("filename"), str):
                     path = real_path(attachment["filename"], cwd)
                     if path is not None:
-                        files.add(str(path))
+                        files.add(markdown_identity(path))
     except (OSError, UnicodeDecodeError):
         return None
     return Transcript(before, after, attached, files)
@@ -286,6 +293,52 @@ def real_path(path, cwd=None):
         return None
 
 
+@lru_cache(maxsize=1)
+def synced_root():
+    return real_path(Path.home() / ".claude/plugins/synced")
+
+
+def markdown_identity(path):
+    root = synced_root()
+    if root is not None and path.is_relative_to(root):
+        parts = path.relative_to(root).parts
+        if len(parts) >= 3:
+            account, folder, *relative = parts
+            plugin = re.sub(r"~g(?:[2-9]|[1-9][0-9]+)$", "", folder)
+            return SyncedFile(root / account, plugin, Path(*relative))
+    return path
+
+
+def manifest_generations(account):
+    try:
+        manifest = fields(json.loads((account / "manifest.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return {}
+    plugins = manifest.get("plugins")
+    if not isinstance(plugins, list):
+        return {}
+    return {
+        entry["name"]: entry.get("generation", 1)
+        for entry in plugins if isinstance(fields(entry).get("name"), str)
+    }
+
+
+def current_markdown(identity, recorded, manifests):
+    if not isinstance(identity, SyncedFile):
+        return recorded
+    account, plugin, relative = identity
+    if account not in manifests:
+        manifests[account] = manifest_generations(account)
+    generation = manifests[account].get(plugin)
+    if type(generation) is not int or generation < 1:
+        return recorded
+    folder = account / (plugin if generation == 1 else f"{plugin}~g{generation}")
+    try:
+        return folder / relative if folder.is_dir() else recorded
+    except OSError:
+        return recorded
+
+
 def skill_bases(content, cwd):
     for text in text_blocks(content):
         for base in SKILL_BASE.findall(text):
@@ -328,8 +381,8 @@ def record_skill(event, args, response):
         for base in skill_bases(content, event.get("cwd")):
             bases.add(str(base))
             path = real_path(base / "SKILL.md")
-            if path is not None and str(path) in state["files"]:
-                mark_delivered(state, str(path))
+            if path is not None:
+                mark_delivered(state, path, recorded_only=True)
         state["skill_bases"] = sorted(bases)
 
     edit_state(event, change)
@@ -437,9 +490,20 @@ def record_bash(args, response, cwd, roots):
     ]
 
 
-def mark_delivered(state, key):
-    state["files"][key] = True
-    if (state.get("sending") or {}).get("key") == key:
+def mark_delivered(state, path, *, recorded_only=False):
+    files = state["files"]
+    key = str(path)
+    identity = markdown_identity(path)
+    matching = [key] if key in files else []
+    if isinstance(identity, SyncedFile):
+        matching = [old for old in files if markdown_identity(Path(old)) == identity]
+    if recorded_only and not matching:
+        return
+    for old in matching:
+        if old != key:
+            del files[old]
+    files[key] = True
+    if (state.get("sending") or {}).get("key") in matching:
         state.pop("sending", None)
 
 
@@ -462,7 +526,7 @@ def record_tool(event):
         roots.update(Path(base) for base in state["skill_bases"])
         roots.update(transcript_skill_bases(event))
         for path in recorder(args, result, event.get("cwd"), roots):
-            mark_delivered(state, str(path))
+            mark_delivered(state, path)
 
     edit_state(event, change)
 
@@ -505,33 +569,37 @@ def header(path, index, total):
 def inject(state, attached):
     files = state["files"]
     sending = state.get("sending") or {}
+    recorded = {markdown_identity(Path(key)): key for key in files}
+    manifests = {}
     texts = []
-    for key, delivered in files.items():
-        if delivered:
+    for identity, key in recorded.items():
+        if files[key]:
             continue
-        if key in attached:
+        if identity in attached:
             files[key] = True
             continue
+        path = current_markdown(identity, Path(key), manifests)
         try:
-            content = Path(key).read_bytes().decode("utf-8")
+            content = path.read_bytes().decode("utf-8")
         except (OSError, UnicodeError):
             continue
         # 見出しも上限に含める。分割数は本文の UTF-16 単位数を超えない。
         size = max(1, units(content))
-        budget = CHUNK_CHARS - units(header(key, size, size))
+        budget = CHUNK_CHARS - units(header(path, size, size))
         if budget < 2:
             continue
         parts = chunks(content, budget)
         version = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        same = sending.get("key") == key and sending.get("version") == version
+        same = (sending.get("key") == key and sending.get("path", key) == str(path)
+                and sending.get("version") == version)
         index = sending["next"] if same and sending["next"] < len(parts) else 0
-        text = header(key, index + 1, len(parts)) + parts[index]
+        text = header(path, index + 1, len(parts)) + parts[index]
         joined = "\n\n".join(texts + [text])
         if texts and (units(joined) > CHUNK_CHARS or joined.count("\n") >= CHUNK_LINES + 10):
             break
         texts.append(text)
         if index + 1 < len(parts):
-            state["sending"] = {"key": key, "version": version, "next": index + 1}
+            state["sending"] = {"key": key, "path": str(path), "version": version, "next": index + 1}
             return joined
         files[key] = True
     state.pop("sending", None)

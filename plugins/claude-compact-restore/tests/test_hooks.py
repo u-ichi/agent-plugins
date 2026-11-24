@@ -409,6 +409,31 @@ class HookTests(unittest.TestCase):
         self.assertEqual("".join(pieces), text)
         self.assertIsNone(self.pre(REPLY))
 
+    def test_synced_markdown_uses_current_manifest_generation_after_compact(self):
+        account = self.plugins / "synced/account"
+        old = self.write(account / "example/references/guide.md", "old generation text")
+        self.post_read(old)
+        current = self.write(account / "example~g2/references/guide.md", "new generation text")
+        self.write(account / "manifest.json", json.dumps({"plugins": [{"name": "example", "generation": 2}]}))
+        self.compact()
+
+        context = self.pre()["additionalContext"]
+        self.assertIn(str(current), context)
+        self.assertIn("new generation text", context)
+        self.assertNotIn("old generation text", context)
+        self.assertIsNone(self.pre())
+
+    def test_synced_markdown_reread_in_another_generation_skips_injection(self):
+        account = self.plugins / "synced/account"
+        old = self.write(account / "example/references/guide.md", "old generation text")
+        self.post_read(old)
+        current = self.write(account / "example~g2/references/guide.md", "new generation text")
+        self.write(account / "manifest.json", json.dumps({"plugins": [{"name": "example", "generation": 2}]}))
+        self.compact()
+        self.post_read(current)
+
+        self.assertIsNone(self.pre())
+
     def test_unreadable_markdown_does_not_stop_reply(self):
         path = self.write(self.plugins / "deleted.md", "old Markdown")
         self.post_read(path)
