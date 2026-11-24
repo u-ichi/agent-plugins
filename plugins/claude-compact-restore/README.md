@@ -1,35 +1,54 @@
 # claude-compact-restore
 
-Claude Code の compact で起きる、原因の違う2つの問題に対処する plugin である。この plugin は hook だけで成り立ち、skill は持たない。hook に対応するのは Claude Code である。
+Claude Code の compact で起きる、原因の違う2つの問題に対処する plugin である。設定は無く、plugin を入れて有効にするだけで動く。hook だけで成り立ち、skill は持たない。hook に対応するのは Claude Code である。
 
-この plugin が対処するのは次の2つだけである。
+この plugin が対処するのは次の2つである。
 
-1. compact の仕様によって、claude.ai のプロジェクト（Claude Projects）の「プロジェクト指示」の全文が会話から無くなる。不具合ではなく、compact が会話全体を要約に置き換え、プロジェクト指示は会話の最初のメッセージにしか入らないため、要約の中の言い換えだけが残る。プロセスの再開が無くても compact のたびに起きる。この plugin は compact の直後に、プロジェクト指示を書いたファイルを読み込んで全文を入れ直す。`CLAUDE.md` は Claude Code が compact の後に入れ直すので対象外であり、プロジェクトを使わない Claude Code では設定しなくてよい。
-2. Claude Code の不具合によって、プロセスの再開をはさんだ compact で、Skill ツールで呼んだ skill の本文が付け直されない。この plugin は、付け直されなかった skill について Skill ツールでの呼び直しを求める（呼び直すまで、Skill と ToolSearch 以外の tool 呼び出しを止める）。こちらはどの Claude Code でも使える。
+1. compact の仕様によって、会話に1回しか入っていない物が要約の言い換えだけになる。対象は claude.ai のプロジェクト（Claude Projects）の「プロジェクト指示」と、会話の途中で読んだ plugin の Markdown である。不具合ではなく compact の仕様によるもので、プロセスの再開が無くても compact のたびに起きる。この plugin は compact の後にそれぞれの本文を入れ直す。
+2. Claude Code の不具合によって、プロセスの再開をはさんだ compact で、Skill ツールで呼んだ skill の本文が付け直されない。この plugin は付け直されなかった skill について Skill ツールでの呼び直しを求める。
 
-Python 3.9 以上で動作し、標準ライブラリだけを使う。hook は失敗しても会話を止めず、設定や transcript が読めないときは何もしない。
+Python 3.9 以上で動作し、標準ライブラリだけを使う。hook は失敗しても会話を止めず、読めない物があれば何もしない。サブエージェントのイベントでは何もしない。
 
-## compact の仕様でプロジェクト指示の全文が無くなる問題
+## compact の仕様でプロジェクト指示と読んだ plugin の Markdown が無くなる問題
 
 検証の詳しい方法と結果は [プロジェクト指示の入れ直しの検証結果](docs/verification-project-instructions.md) にある。
 
 ### 何が起きるかと原因
 
-この処理が入れ直すのは、claude.ai のプロジェクト（Claude Projects）だけにある「プロジェクト指示」である。compact が起きると、プロジェクト指示の全文が会話から無くなり、書き方などのルールが落ちる。
+claude.ai のプロジェクト（Claude Projects）だけにある「プロジェクト指示」は、compact が起きると全文が会話から無くなり、書き方などのルールが落ちる。不具合ではなく compact の仕様（要約の性質）によるものである。compact は会話全体を要約に置き換え、プロジェクト指示は会話の最初のメッセージにしか入らないため、要約の中の言い換えだけが残る。プロセスの再開が無くても compact のたびに起きる。
 
-これは不具合ではなく、compact の仕様（要約の性質）によるものである。compact は会話全体を要約に置き換え、プロジェクト指示は会話の最初のメッセージにしか入らないため、要約の中の言い換えだけが残る。プロセスの再開が無くても compact のたびに起きる。
+会話の途中で読んだ plugin の Markdown（skill の references や playbook など、手順を書いた物）も compact で要約に置き換わる。Claude Code は compact の直後に、読んだか編集したファイルのうち最近更新された5つまでを読み直し、5,000 トークンを超えるファイルはパスだけになる（[Claude Code 公式文書（Context window）](https://code.claude.com/docs/en/context-window.md)）。それ以外は要約の言い換えだけが残る。
 
-Claude Code は `CLAUDE.md` を compact の後に自分で入れ直す。そのため `CLAUDE.md` はこの plugin の対象ではなく、プロジェクトを使わない Claude Code ではこの処理を設定しなくてよい。プロジェクト指示の入れ直しは、claude.ai のプロジェクトから動く Claude Code のセッション向けの処理である。
+`CLAUDE.md` は Claude Code が compact の後に自分で入れ直すため、この plugin の対象外である。
 
 ### この plugin の対処
 
-Claude Code はプロジェクト指示をファイルとして持たないため、利用者はプロジェクト指示と同じ中身を書いたファイルを用意し、そのパスを設定する。Claude Code の compact では PreCompact、要約の作成、SessionStart（`source` が `compact`）、PostCompact の順に処理が進む。この plugin は SessionStart（`compact`）の hook でプロジェクト指示を書いたファイルを読み込み、前置きを付けてプロジェクト指示の全文を追加の文脈として出力する。
+#### プロジェクト指示
 
-Claude Code は hook 1つの追加の文脈を UTF-16 の単位で 10,000 文字で切る。そのため、9,000 単位を超えるときは2つの hook に分けて出力する。およそ 18,000 単位を超え、2つでも入らない長さのときは、プロジェクト指示を書いたファイルを Read で読み直すよう求める文だけを出す。
+Claude Code の compact では PreCompact、要約の作成、SessionStart（`source` が `compact`）、PostCompact の順に処理が進む。利用者がファイルを用意してパスを設定する必要は無い。
+
+- `SessionStart`（`source` が `compact`）の hook が、transcript の最初の `user` の行にある `<project-instructions nonce="...">` から同じ nonce の閉じタグ `</project-instructions nonce="...">` までの中身（タグと前後の空白を除く）を取り出し、前置きを付けて `additionalContext` で出力する。nonce が違う閉じタグでは切らない。
+- transcript のファイルが無い環境のために、`UserPromptSubmit` の hook が `prompt` に同じ形のブロックがあれば中身を状態ファイルに保存する（新しい物で上書きする）。transcript から取れないときはこの保存内容を使う。どちらも無ければ何もしない。
+- Claude Code は hook 1つの追加の文脈を UTF-16 の単位で 10,000 文字で切るため、9,000 単位を超えるときは2つの hook に分けて出力する。2つでも入らない長さのときは、全文を状態ファイルと同じフォルダの `<session_id>-instructions.md` に書き、そのファイルを Read で読み直すよう求める文だけを出す。
+
+プロジェクト指示のブロックが無い会話（claude.ai のプロジェクトを使わない Claude Code）では何もしない。`CLAUDE.md` は対象外である。
+
+#### 読んだ plugin の Markdown
+
+- `PostToolUse` の hook が全文を読んだ Markdown を状態ファイルに記録する。全文を読んだと数えるのは、`offset`・`limit` なしの `Read` ツールと、Bash の `cat` などで出力にファイルの全文がそのまま出た読み取りである。出力が切り詰められた物や一部だけの読み取りは数えない。
+- 対象は、実パスが `~/.claude/plugins` の下にある Markdown と、`Skill` ツールの結果の `Base directory for this skill:` の行が示すフォルダの下にある Markdown である。`Read` ツールや Bash の `cat` で全文を読んだ `SKILL.md` もほかの Markdown と同じ条件で記録する（`Skill` ツールでは呼べず、`SKILL.md` を `Read` で読む skill があるため）。`Skill` ツールで呼んだだけの skill の `SKILL.md` は2つ目の問題の対処で戻すため、記録しない。
+- `SessionStart`（`compact`）で、記録した Markdown を全部「戻す対象」にする。
+- `PreToolUse` の hook が戻す対象から次の3つを除き、残りのファイルの今の本文を `additionalContext` で差し込む。1回に 9,000 UTF-16 単位まで差し込み、入らない分は次の tool の呼び出しで続ける。差し込みの途中でファイルの内容が変わったときは、今の本文の最初から差し込み直す。
+  - 最後の `compact_boundary` の行の後に、`attachment.type` が `file` でそのパスの attachment がある物（Claude Code が全文を付け直した物）。パスだけの `compact_file_reference` は付け直されていない物として扱う。
+  - compact の後に同じ見方で全文を読み直した物。
+  - Claude Code か `Skill` ツールで本文が戻った skill の `SKILL.md`（同じ本文が2回入らないようにするため）。最後の `compact_boundary` の行の後の `invoked_skills` の attachment で付け直された skill については `skills[].content` の1行目の `Base directory for this skill:` の行が示すフォルダの `SKILL.md` を、compact の後に `Skill` ツールで呼び直した skill についてはその `SKILL.md` を除く。
+- transcript が読めないときは、戻す対象を全部差し込む。
+- 差し込み終わるまで、返信の tool（`mcp__hearthbot__message_coordinator`、`mcp__hearthbot__message_thread`、`mcp__hearthbot__edit_message`、`mcp__hearthbot__request_decision`、`mcp__hearthbot__no_reply_needed`、`mcp__hearthbot__start_thread`）と `Agent` の呼び出しを止め、差し込んだ内容に従って見直してからもう一度呼ぶよう求める。
+- `mcp__hearthbot__post_message` と `mcp__hearthbot__post_widget` は止めず、差し込みだけを行う（呼び出し中に本文が画面に出る tool で、止めると本文が消えるため）。それ以外の tool も止めない。
 
 ### 測定結果
 
-合成の場面での測定（169 回）では、プロジェクト指示の全文を入れ直すことで、compact の後のルール違反が平均 13.7 件から 1.5 件に減った。
+合成の場面での測定（169 回）では、プロジェクト指示の全文を入れ直すことで、compact の後のルール違反が平均 13.7 件から 1.5 件に減った。同じ測定では手順書ファイルを読み直させる案は差が出なかった（何もしない実行でもモデルが自分で読み直していた）。この plugin は、モデルが自分で読み直さなかった場合にも今の本文が会話に入るように、読んだ plugin の Markdown を戻す。
 
 ## Claude Code の不具合で skill の本文が付け直されない問題
 
@@ -61,15 +80,16 @@ Claude Code の中のどの処理を直すべきかは外からは分からな�
 
 ### この plugin の対処
 
-この処理は、どの Claude Code でも使える。
+この処理はどの Claude Code でも使える。対象はすべての skill である。
 
-PreToolUse の hook が transcript を読み込み、最後の compact の境目より前に呼んだ skill のうち、次の条件をすべて満たすものについて Skill ツールでの呼び直しを求める。
+`PreToolUse` の hook が transcript を読み、最後の `compact_boundary` の行より前に `Skill` ツールで呼んだ skill のうち、次の両方を満たす物について `Skill` ツールでの呼び直しを求める。
 
-- 設定のパターンに合う
 - 境目の後の `invoked_skills` に無い
 - 境目の後に呼び直されてもいない
 
-呼び直すまでは Skill と ToolSearch 以外の tool 呼び出しを止める。すでに `invoked_skills` にある skill は求めないため、本文が二重に入ることはない。サブエージェントの呼び出しは対象外である。
+呼び直すまで tool の呼び出しを止める。止めないのは `Skill`、`ToolSearch`、`mcp__hearthbot__post_message`、`mcp__hearthbot__post_widget` である。名前は `plugin:skill` の形と、`:` より後ろの名前のどちらで呼んでも同じ skill として照合する。すでに `invoked_skills` にある skill は求めないため、本文が二重に入ることはない。サブエージェントの呼び出しは対象外である。
+
+transcript のファイルが無いときは、`PostToolUse` で記録した `Skill` ツールの呼び出しを使い、compact の後に呼び直されていない物を全部求める（Claude Code が付け直したかが分からないため）。
 
 ### 観測結果
 
@@ -116,43 +136,19 @@ Claude Code の更新後にこの不具合が残っているかは、会話の�
 
 ## 補わないもの
 
-次の4つは補わない。
+次の3つは補わない。
 
 - 利用者の発言の再掲
-- 読んだファイルの読み直し
 - 要約を作るモデルへの指示
 - 進捗の一覧の再掲
 
 合成の場面での測定（169 回）では、これらを補っても compact の後のルール違反の数に差が出なかった。
 
-## 設定
+## 状態ファイルと hook
 
-設定が無い項目の処理は動かない。環境変数が無い項目は設定ファイルから読む。
+状態ファイルは `<一時フォルダ>/claude-compact-restore/<session_id>.json`（Python の `tempfile.gettempdir()` が返すフォルダ）に会話ごとに1つ置く。書き込みは `fcntl` で排他する。テスト用に限り、環境変数 `CLAUDE_COMPACT_RESTORE_STATE_DIR` で状態ファイルの置き場所を変えられる（利用者の設定ではない）。
 
-### 環境変数
-
-| 環境変数 | 内容 |
-| --- | --- |
-| `CLAUDE_COMPACT_RESTORE_INSTRUCTIONS` | プロジェクト指示を書いたファイルのパス。`~` を展開する |
-| `CLAUDE_COMPACT_RESTORE_SKILLS` | 呼び直しを求める skill の名前のパターン。fnmatch 形式のカンマ区切りで、`my-plugin:*,deploy` のように指定する |
-| `CLAUDE_COMPACT_RESTORE_CONFIG` | 設定ファイルのパス。省略時は `~/.claude/claude-compact-restore.json` を使う |
-
-### 設定ファイル
-
-既定の設定ファイルは `~/.claude/claude-compact-restore.json` である。`instructions` に文字列、`skills` に文字列の配列を指定する。
-
-```json
-{
-  "instructions": "~/project/INSTRUCTIONS.md",
-  "skills": ["my-plugin:*"]
-}
-```
-
-### skill パターンの指定
-
-パターンは `plugin:skill` の形の名前と、`:` より後ろの名前のどちらかに合えばよい。
-
-パターンを必ず指定させるのは、呼ぶと作業をやり直す skill（調査や定期実行を始める skill など）まで呼び直させないためである。手順やルールを読むための skill だけを指定する。
+登録する hook は `SessionStart`（matcher `compact`、hook 2つ）、`UserPromptSubmit`、`PreToolUse`（`*`）、`PostToolUse`（`*`）である。
 
 ## 入れ方
 
@@ -169,7 +165,7 @@ claude.ai では https://claude.ai/customize/plugins の **Add** > **Add marketp
 
 プロセスの再開をはさんだ compact でも、呼んだ skill が全部 `invoked_skills` に入るようになれば、skill の呼び直しを求める処理は何も求めなくなる。この plugin は `invoked_skills` を見て判断するため、入れたままでも害は無い。
 
-そのときは `skills`（環境変数を使っている場合は `CLAUDE_COMPACT_RESTORE_SKILLS`）の設定を消してよい。プロジェクト指示の入れ直しは compact の仕様への対処であり、不具合とは別なので残す。
+プロジェクト指示と読んだ plugin の Markdown を戻す処理は compact の仕様への対処であり、不具合とは別なので残る。
 
 ## テスト
 
