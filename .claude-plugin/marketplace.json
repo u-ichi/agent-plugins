@@ -16,6 +16,11 @@
       "name": "referent-first",
       "source": "./plugins/referent-first",
       "description": "名前より先に実体を決め、決めた名前だけで書くための plugin。常に読む rule と対象文書で読む skill で成り立つ。返信、進捗チェックリスト、PR の説明、依頼文、設計資料、調査報告、対策案、コードや画面の新しい名前を対象に、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ。対象文書や新しい名前が必要なときは、7列の対応表を本文より先に独立保存してから書く。"
+    },
+    {
+      "name": "claude-compact-restore",
+      "source": "./plugins/claude-compact-restore",
+      "description": "Claude Code の compact 後に、claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code が付け直さなかった skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。"
     }
   ]
 }
