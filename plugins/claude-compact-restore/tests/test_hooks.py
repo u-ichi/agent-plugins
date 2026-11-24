@@ -256,7 +256,7 @@ class HookTests(unittest.TestCase):
         installed = self.write(self.plugins / "plugin/guide.md", "previous guide")
         base = self.home / "checkout/skill"
         external = self.write(base / "references/note.md", "previous note")
-        skill = self.write(base / "SKILL.md", "excluded skill body")
+        skill = self.write(base / "SKILL.md", "Skill-only body")
         outside = self.write(base.parent / "note.md", "excluded outside body")
         partial = self.write(self.plugins / "plugin/partial.md", "excluded offset body")
         truncated = self.write(self.plugins / "plugin/truncated.md", "excluded truncated body")
@@ -264,9 +264,9 @@ class HookTests(unittest.TestCase):
         link.symlink_to(outside)
 
         self.assertIsNone(self.post("Skill", {"skill": "a:skill"}, {
-            "content": [{"type": "text", "text": f"Base directory for this skill: {base}\nInstructions"}],
+            "content": [{"type": "text", "text": f"Base directory for this skill: {base}\nSkill-only body"}],
         }))
-        for path in (installed, external, skill, outside, link):
+        for path in (installed, external, outside, link):
             self.assertIsNone(self.post_read(path))
         self.post_read(partial, {"file": {"startLine": 1, "numLines": 1, "totalLines": 1}}, offset=1)
         self.post_read(truncated, {"file": {"startLine": 1, "numLines": 1, "totalLines": 2}})
@@ -283,8 +283,45 @@ class HookTests(unittest.TestCase):
         for path, body in ((installed, "current guide"), (external, "current note")):
             self.assertIn(f"（1/1、{path}）", context)
             self.assertIn(body, context)
-        for omitted in ("excluded", "previous", str(link)):
+        for omitted in ("excluded", "previous", str(link), str(skill), "Skill-only body"):
             self.assertNotIn(omitted, context)
+        self.assertIsNone(self.pre())
+
+    def test_read_skill_markdown_returns_after_compact(self):
+        path = self.write(self.plugins / "example/SKILL.md", "previous skill text")
+        self.assertIsNone(self.post_read(path))
+        self.compact()
+        self.write(path, "current skill text")
+
+        context = self.pre()["additionalContext"]
+        self.assertIn(f"（1/1、{path}）", context)
+        self.assertIn("current skill text", context)
+        self.assertNotIn("previous skill text", context)
+        self.assertIsNone(self.pre())
+
+    def test_read_skill_markdown_skips_only_matching_reattached_base(self):
+        base = self.plugins / "example"
+        reattached = self.write(base / "SKILL.md", "reattached skill text")
+        earlier = self.write(self.plugins / "earlier/SKILL.md", "earlier skill text")
+        for path in (reattached, earlier):
+            self.post_read(path)
+        self.compact()
+        self.write_transcript(
+            BOUNDARY,
+            attachment("invoked_skills", skills=[{
+                "name": "earlier", "content": f"Base directory for this skill: {earlier.parent}\nEarlier",
+            }]),
+            BOUNDARY,
+            attachment("invoked_skills", skills=[{
+                "name": "example",
+                "content": f"Base directory for this skill: {base}\nBase directory for this skill: {earlier.parent}",
+            }]),
+        )
+
+        context = self.pre()["additionalContext"]
+        self.assertIn("earlier skill text", context)
+        self.assertNotIn(str(reattached), context)
+        self.assertNotIn("reattached skill text", context)
         self.assertIsNone(self.pre())
 
     def test_skill_base_can_come_from_transcript_tool_result_or_meta(self):

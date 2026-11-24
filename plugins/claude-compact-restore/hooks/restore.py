@@ -221,13 +221,21 @@ def scan_transcript(event):
             elif row_type == "attachment" and compacted:
                 attachment = fields(row.get("attachment"))
                 kind = attachment.get("type")
+                cwd = row.get("cwd") or event.get("cwd")
                 if kind == "invoked_skills" and isinstance(attachment.get("skills"), list):
-                    attached.update(
-                        skill["name"] for skill in attachment["skills"]
-                        if isinstance(fields(skill).get("name"), str)
-                    )
+                    for skill in attachment["skills"]:
+                        name = fields(skill).get("name")
+                        if isinstance(name, str):
+                            attached.add(name)
+                        content = fields(skill).get("content")
+                        if isinstance(content, str):
+                            first_line = content.partition("\n")[0]
+                            for base in skill_bases(first_line, cwd):
+                                path = real_path(base / "SKILL.md")
+                                if path is not None:
+                                    files.add(str(path))
                 elif kind == "file" and isinstance(attachment.get("filename"), str):
-                    path = real_path(attachment["filename"], row.get("cwd") or event.get("cwd"))
+                    path = real_path(attachment["filename"], cwd)
                     if path is not None:
                         files.add(str(path))
     except (OSError, UnicodeDecodeError):
@@ -316,15 +324,20 @@ def record_skill(event, args, response):
 
     def change(state):
         state["after"][name] = None
-        bases = [str(path) for path in skill_bases(content, event.get("cwd"))]
-        state["skill_bases"] = sorted(set(state["skill_bases"]) | set(bases))
+        bases = set(state["skill_bases"])
+        for base in skill_bases(content, event.get("cwd")):
+            bases.add(str(base))
+            path = real_path(base / "SKILL.md")
+            if path is not None and str(path) in state["files"]:
+                mark_delivered(state, str(path))
+        state["skill_bases"] = sorted(bases)
 
     edit_state(event, change)
 
 
 def markdown_path(path, roots):
     return (
-        path is not None and path.suffix == ".md" and path.name != "SKILL.md"
+        path is not None and path.suffix == ".md"
         and any(path != root and path.is_relative_to(root) for root in roots)
     )
 
@@ -402,7 +415,7 @@ def record_bash(args, response, cwd, roots):
     for root in roots:
         for directory, _, names in os.walk(root):
             for name in names:
-                if name.endswith(".md") and name != "SKILL.md":
+                if name.endswith(".md"):
                     path = real_path(Path(directory) / name)
                     if markdown_path(path, roots):
                         candidates.add(path)
@@ -424,6 +437,12 @@ def record_bash(args, response, cwd, roots):
     ]
 
 
+def mark_delivered(state, key):
+    state["files"][key] = True
+    if (state.get("sending") or {}).get("key") == key:
+        state.pop("sending", None)
+
+
 def record_tool(event):
     tool = event.get("tool_name")
     args, response = fields(event.get("tool_input")), event.get("tool_response")
@@ -443,10 +462,7 @@ def record_tool(event):
         roots.update(Path(base) for base in state["skill_bases"])
         roots.update(transcript_skill_bases(event))
         for path in recorder(args, result, event.get("cwd"), roots):
-            key = str(path)
-            state["files"][key] = True
-            if (state.get("sending") or {}).get("key") == key:
-                state.pop("sending", None)
+            mark_delivered(state, str(path))
 
     edit_state(event, change)
 
