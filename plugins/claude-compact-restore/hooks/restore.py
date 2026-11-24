@@ -80,7 +80,7 @@ def edit_state(event, change):
         return None
 
 
-def transcript_entries(event, markers, *, strict=False):
+def transcript_entries(event, markers):
     path = event.get("transcript_path")
     if not isinstance(path, str) or not path:
         raise FileNotFoundError
@@ -90,9 +90,7 @@ def transcript_entries(event, markers, *, strict=False):
                 continue
             try:
                 row = json.loads(line)
-            except json.JSONDecodeError:
-                if strict:
-                    raise
+            except ValueError:
                 continue
             if isinstance(row, dict):
                 yield row
@@ -207,7 +205,7 @@ def scan_transcript(event):
     compacted = False
     try:
         markers = ('"compact_boundary"', '"Skill"', '"attachment"')
-        for row in transcript_entries(event, markers, strict=True):
+        for row in transcript_entries(event, markers):
             row_type = row.get("type")
             if row_type == "system" and row.get("subtype") == "compact_boundary":
                 before.update(after)
@@ -232,7 +230,7 @@ def scan_transcript(event):
                     path = real_path(attachment["filename"], row.get("cwd") or event.get("cwd"))
                     if path is not None:
                         files.add(str(path))
-    except (OSError, ValueError):
+    except (OSError, UnicodeDecodeError):
         return None
     return Transcript(before, after, attached, files)
 

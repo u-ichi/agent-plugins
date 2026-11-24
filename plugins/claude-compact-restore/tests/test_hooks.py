@@ -191,6 +191,15 @@ class HookTests(unittest.TestCase):
         self.write_transcript(*rows, calls("prune"))
         self.assertIsNone(self.pre())
 
+    def test_malformed_transcript_row_does_not_require_reattached_skill(self):
+        self.post("Skill", {"skill": "orchard:prune"})
+        self.compact()
+        self.assert_denied_for(self.pre(), "orchard:prune")
+        self.write_transcript(calls("orchard:prune"), BOUNDARY, attached("orchard:prune"))
+        with self.transcript.open("a", encoding="utf-8") as transcript:
+            transcript.write('{"type": "attachment", "attachment":')
+        self.assertIsNone(self.pre())
+
     def test_uses_latest_compact_boundary(self):
         rows = [calls("orchard:prune"), BOUNDARY, attached("orchard:prune"),
                 calls("orchard:graft", "harvest"), BOUNDARY, attached("harvest")]
