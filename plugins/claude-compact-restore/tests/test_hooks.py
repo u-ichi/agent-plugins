@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -39,6 +40,10 @@ def user(content, **fields):
 def instruction_block(text, nonce="0a9F", part=None):
     attrs = ' source="project"' if part is None else f' source="project" part="{part}"'
     return f'<project-instructions nonce="{nonce}"{attrs}>{text}</project-instructions nonce="{nonce}">'
+
+
+def instruction_nonce(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 class HookTests(unittest.TestCase):
@@ -131,15 +136,13 @@ class HookTests(unittest.TestCase):
             self.assertEqual(group.get("matcher"), matcher)
             self.assertEqual(len(group["hooks"]), count)
 
-    def test_latest_user_instructions_win_and_nonce_must_match(self):
+    def test_first_user_instructions_win_and_nonce_must_match(self):
         self.assertIsNone(self.submit(instruction_block("saved instructions")))
         text = '指示一\r\n</project-instructions nonce="abcd">\n指示二'
-        invalid = instruction_block("mismatched instructions").replace('/project-instructions nonce="0a9F"',
-                                                                        '/project-instructions nonce="abcd"')
-        self.write_transcript(calls("orchard:prune"), user(instruction_block("first instructions")), user([
+        self.write_transcript(calls("orchard:prune"), user([
             {"type": "text", "text": "wake"},
             {"type": "text", "text": instruction_block(f"  {text}\r\n")},
-        ]), user(invalid))
+        ]), user(instruction_block("later instructions")))
         first, second = self.compact()
         self.assertEqual(first["hookEventName"], "SessionStart")
         context = first["additionalContext"]
@@ -147,49 +150,71 @@ class HookTests(unittest.TestCase):
         for fragment in ("compact", "プロジェクト指示の全文", "プロジェクト指示は要約の言い換え", "決まったこと", "依頼"):
             self.assertIn(fragment, context[:-len(text)])
         self.assertNotIn("saved instructions", context)
-        self.assertNotIn("first instructions", context)
-        self.assertNotIn("mismatched instructions", context)
+        self.assertNotIn("later instructions", context)
         self.assertIsNone(second)
 
-    def test_hook_attachment_replaces_user_instructions(self):
+    def test_project_instructions_ignore_quoted_blocks(self):
+        quoted = "quoted instruction body"
+        wrapped = instruction_block(quoted, instruction_nonce(quoted), "1/1")
         self.write_transcript(
-            user(instruction_block("version A")),
-            attachment("hook_additional_context", content=[
-                instruction_block("superseded text", "ab") + instruction_block("version B", "cd"),
+            user([
+                {"type": "text", "text": wrapped},
+                {"type": "tool_result", "content": instruction_block("tool result")},
+                {"type": "text", "text": instruction_block("first version")},
             ]),
-            user([{"type": "tool_result", "content": instruction_block("tool result")}]),
-            attachment("file", content=[instruction_block("file attachment")]),
+            user(instruction_block("peer report") + wrapped, isMeta=True, origin={"kind": "peer"}),
+            user(instruction_block("compact summary") + wrapped, isCompactSummary=True),
+            attachment("hook_additional_context", content=[instruction_block("Markdown example")]),
+            attachment("file", content=[wrapped]),
         )
         first, second = self.compact()
-        context = first["additionalContext"]
-        self.assertTrue(context.endswith("version B"))
-        for ignored in ("version A", "superseded text", "tool result", "file attachment", "<project-instructions"):
-            self.assertNotIn(ignored, context)
+        self.assertEqual(first["additionalContext"].split("\n\n", 1)[1], "first version")
         self.assertIsNone(second)
 
     def test_multipart_hook_instructions_win_only_when_complete(self):
-        def part(text, index):
-            return attachment("hook_additional_context", content=[instruction_block(text, "abcd", index)])
+        prefix, suffix = "最初の行\r\n2行目\n", "  3行目\n\n最後の行\n"
+        full = prefix + suffix
+        nonce = instruction_nonce(full)
 
-        rows = [part("obsolete prefix", "1/2"), user(instruction_block("complete previous version")),
-                part("  latest prefix\n", "1/2")]
+        def part(text, index):
+            return attachment("hook_additional_context", content=[
+                "更新の見出し\n" + instruction_block(f"\n{text}\n", nonce, index),
+            ])
+
+        rows = [user(instruction_block("complete previous version")), part("obsolete prefix", "1/2"),
+                part(prefix, "1/2")]
         self.write_transcript(*rows)
         first, second = self.compact()
         self.assertTrue(first["additionalContext"].endswith("complete previous version"))
         self.assertIsNone(second)
 
-        self.write_transcript(*rows, part("  latest suffix  ", "2/2"))
+        self.write_transcript(*rows, part(suffix, "2/2"))
         first, second = self.compact()
-        self.assertTrue(first["additionalContext"].endswith("latest prefix\n  latest suffix"))
-        for ignored in ("complete previous version", "obsolete prefix", "<project-instructions"):
-            self.assertNotIn(ignored, first["additionalContext"])
+        self.assertEqual(first["additionalContext"].split("\n\n", 1)[1], full)
         self.assertIsNone(second)
 
-    def test_prompt_instructions_overwrite_and_back_up_transcript(self):
+    def test_latest_hash_verified_hook_instructions_win(self):
+        def attached_block(text, nonce):
+            return attachment("hook_additional_context", content=[instruction_block(text, nonce, "1/1")])
+
+        initial = user(instruction_block("initial version"))
+        invalid = attached_block("mismatched body", instruction_nonce("other body"))
+        self.write_transcript(initial, invalid)
+        first, second = self.compact()
+        self.assertEqual(first["additionalContext"].split("\n\n", 1)[1], "initial version")
+        self.assertIsNone(second)
+
+        self.write_transcript(initial, attached_block("earlier version", instruction_nonce("earlier version")),
+                              attached_block("current version", instruction_nonce("current version")), invalid)
+        first, second = self.compact()
+        self.assertEqual(first["additionalContext"].split("\n\n", 1)[1], "current version")
+        self.assertIsNone(second)
+
+    def test_prompt_instructions_overwrite_and_back_up_first_user(self):
         self.assertIsNone(self.submit(instruction_block("initial instructions")))
         self.assertIsNone(self.submit(instruction_block("  current instructions \n")))
         self.assertIsNone(self.submit('<project-instructions nonce="ab">invalid</project-instructions nonce="cd">'))
-        self.write_transcript(user("no instructions"), user("still no instructions"))
+        self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
         first, second = self.compact()
         self.assertTrue(first["additionalContext"].endswith("current instructions"))
         self.assertIsNone(second)
@@ -197,7 +222,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.compact(), (first, second))
 
     def test_no_instructions_and_noncompact_session(self):
-        self.write_transcript(user("no instructions"), user("still no instructions"))
+        self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
         self.assertEqual(self.compact(), (None, None))
         self.write_transcript(user(instruction_block("instructions")))
         self.assertEqual(self.compact(source="resume"), (None, None))

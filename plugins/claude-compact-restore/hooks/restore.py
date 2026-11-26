@@ -23,9 +23,7 @@ CONTINUATION = "プロジェクト指示の続きです。\n\n"
 CHUNK_CHARS = LIMIT
 CHUNK_LINES = 180
 PROJECT_INSTRUCTIONS = re.compile(
-    r'<project-instructions nonce="([0-9a-fA-F]+)"(\s[^>]*)?>'
-    r'((?:(?!<project-instructions nonce="[0-9a-fA-F]+"(?:\s[^>]*)?>).)*?)'
-    r'</project-instructions nonce="\1">',
+    r'<project-instructions nonce="([0-9a-fA-F]+)"(\s[^>]*)?>(.*?)</project-instructions nonce="\1">',
     re.S,
 )
 INSTRUCTION_ATTRIBUTE = re.compile(r'([^\s=]+)="([^"]*)"')
@@ -130,26 +128,24 @@ def save_instructions(event):
 
 
 def latest_instructions(event):
+    first_user = None
     latest = None
     parts = {}
     try:
         for row in transcript_entries(event, ()):
-            if row.get("type") == "user":
-                texts = ("\n".join(text_blocks(fields(row.get("message")).get("content"))),)
-            elif row.get("type") == "attachment":
-                attachment = fields(row.get("attachment"))
-                content = attachment.get("content")
-                if attachment.get("type") != "hook_additional_context" or not isinstance(content, list):
-                    continue
-                texts = (text for text in content if isinstance(text, str))
-            else:
+            if row.get("type") == "user" and first_user is None:
+                first_user = "\n".join(text_blocks(fields(row.get("message")).get("content")))
+            if row.get("type") != "attachment":
                 continue
-            for text in texts:
+            attachment = fields(row.get("attachment"))
+            content = attachment.get("content")
+            if attachment.get("type") != "hook_additional_context" or not isinstance(content, list):
+                continue
+            for text in content:
+                if not isinstance(text, str):
+                    continue
                 for nonce, attributes, body in PROJECT_INSTRUCTIONS.findall(text):
-                    part = dict(INSTRUCTION_ATTRIBUTE.findall(attributes)).get("part")
-                    if part is None:
-                        latest = body.strip()
-                        continue
+                    part = dict(INSTRUCTION_ATTRIBUTE.findall(attributes)).get("part", "")
                     if not re.fullmatch(r"[0-9]+/[0-9]+", part):
                         continue
                     try:
@@ -159,12 +155,19 @@ def latest_instructions(event):
                     if not 1 <= index <= total:
                         continue
                     pieces = parts.setdefault((nonce, total), {})
-                    pieces[index] = body
+                    pieces[index] = body.removeprefix("\n").removesuffix("\n")
                     if len(pieces) == total:
-                        latest = "".join(pieces[k] for k in range(1, total + 1)).strip()
+                        assembled = "".join(pieces[k] for k in range(1, total + 1))
+                        if hashlib.sha256(assembled.encode("utf-8")).hexdigest()[:16] == nonce:
+                            latest = assembled
     except (OSError, UnicodeError):
         return None
-    return latest
+    if latest is not None:
+        return latest
+    for _, attributes, body in PROJECT_INSTRUCTIONS.findall(first_user or ""):
+        if "part" not in dict(INSTRUCTION_ATTRIBUTE.findall(attributes)):
+            return body.strip()
+    return None
 
 
 def forget_files(state):
