@@ -36,8 +36,9 @@ def user(content, **fields):
     return {"type": "user", "message": {"content": content}, **fields}
 
 
-def instruction_block(text):
-    return f'<project-instructions nonce="0a9F" source="project">{text}</project-instructions nonce="0a9F">'
+def instruction_block(text, nonce="0a9F", part=None):
+    attrs = ' source="project"' if part is None else f' source="project" part="{part}"'
+    return f'<project-instructions nonce="{nonce}"{attrs}>{text}</project-instructions nonce="{nonce}">'
 
 
 class HookTests(unittest.TestCase):
@@ -106,6 +107,11 @@ class HookTests(unittest.TestCase):
         path.write_bytes(content.encode("utf-8"))
         return path
 
+    def manifest(self, account, *plugins):
+        return self.write(self.plugins / "synced" / account / "manifest.json", json.dumps({
+            "plugins": [{"name": name, "generation": generation} for name, generation in plugins],
+        })).parent
+
     def assert_denied_for(self, output, name):
         self.assertIsNotNone(output)
         self.assertEqual(output["hookEventName"], "PreToolUse")
@@ -125,13 +131,15 @@ class HookTests(unittest.TestCase):
             self.assertEqual(group.get("matcher"), matcher)
             self.assertEqual(len(group["hooks"]), count)
 
-    def test_first_user_instructions_win_and_nonce_must_match(self):
+    def test_latest_user_instructions_win_and_nonce_must_match(self):
         self.assertIsNone(self.submit(instruction_block("saved instructions")))
         text = '指示一\r\n</project-instructions nonce="abcd">\n指示二'
-        self.write_transcript(calls("orchard:prune"), user([
+        invalid = instruction_block("mismatched instructions").replace('/project-instructions nonce="0a9F"',
+                                                                        '/project-instructions nonce="abcd"')
+        self.write_transcript(calls("orchard:prune"), user(instruction_block("first instructions")), user([
             {"type": "text", "text": "wake"},
             {"type": "text", "text": instruction_block(f"  {text}\r\n")},
-        ]), user(instruction_block("later instructions")))
+        ]), user(invalid))
         first, second = self.compact()
         self.assertEqual(first["hookEventName"], "SessionStart")
         context = first["additionalContext"]
@@ -139,14 +147,49 @@ class HookTests(unittest.TestCase):
         for fragment in ("compact", "プロジェクト指示の全文", "プロジェクト指示は要約の言い換え", "決まったこと", "依頼"):
             self.assertIn(fragment, context[:-len(text)])
         self.assertNotIn("saved instructions", context)
-        self.assertNotIn("later instructions", context)
+        self.assertNotIn("first instructions", context)
+        self.assertNotIn("mismatched instructions", context)
         self.assertIsNone(second)
 
-    def test_prompt_instructions_overwrite_and_back_up_first_user(self):
+    def test_hook_attachment_replaces_user_instructions(self):
+        self.write_transcript(
+            user(instruction_block("version A")),
+            attachment("hook_additional_context", content=[
+                instruction_block("superseded text", "ab") + instruction_block("version B", "cd"),
+            ]),
+            user([{"type": "tool_result", "content": instruction_block("tool result")}]),
+            attachment("file", content=[instruction_block("file attachment")]),
+        )
+        first, second = self.compact()
+        context = first["additionalContext"]
+        self.assertTrue(context.endswith("version B"))
+        for ignored in ("version A", "superseded text", "tool result", "file attachment", "<project-instructions"):
+            self.assertNotIn(ignored, context)
+        self.assertIsNone(second)
+
+    def test_multipart_hook_instructions_win_only_when_complete(self):
+        def part(text, index):
+            return attachment("hook_additional_context", content=[instruction_block(text, "abcd", index)])
+
+        rows = [part("obsolete prefix", "1/2"), user(instruction_block("complete previous version")),
+                part("  latest prefix\n", "1/2")]
+        self.write_transcript(*rows)
+        first, second = self.compact()
+        self.assertTrue(first["additionalContext"].endswith("complete previous version"))
+        self.assertIsNone(second)
+
+        self.write_transcript(*rows, part("  latest suffix  ", "2/2"))
+        first, second = self.compact()
+        self.assertTrue(first["additionalContext"].endswith("latest prefix\n  latest suffix"))
+        for ignored in ("complete previous version", "obsolete prefix", "<project-instructions"):
+            self.assertNotIn(ignored, first["additionalContext"])
+        self.assertIsNone(second)
+
+    def test_prompt_instructions_overwrite_and_back_up_transcript(self):
         self.assertIsNone(self.submit(instruction_block("initial instructions")))
         self.assertIsNone(self.submit(instruction_block("  current instructions \n")))
         self.assertIsNone(self.submit('<project-instructions nonce="ab">invalid</project-instructions nonce="cd">'))
-        self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
+        self.write_transcript(user("no instructions"), user("still no instructions"))
         first, second = self.compact()
         self.assertTrue(first["additionalContext"].endswith("current instructions"))
         self.assertIsNone(second)
@@ -154,7 +197,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.compact(), (first, second))
 
     def test_no_instructions_and_noncompact_session(self):
-        self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
+        self.write_transcript(user("no instructions"), user("still no instructions"))
         self.assertEqual(self.compact(), (None, None))
         self.write_transcript(user(instruction_block("instructions")))
         self.assertEqual(self.compact(source="resume"), (None, None))
@@ -240,6 +283,114 @@ class HookTests(unittest.TestCase):
         self.assertIsNone(self.pre())
         self.compact()
         self.assertIn("orchard:graft", self.assert_denied_for(self.pre(), "orchard:prune"))
+
+    def test_simple_synced_skill_uses_read_for_qualified_and_short_names(self):
+        account = self.manifest("account", ("orchard", 2))
+        previous = self.write(account / "orchard/skills/prune/SKILL.md", "---\nname: prune\n---\nPrevious")
+        current = self.write(account / "orchard~g2/skills/prune/SKILL.md",
+                             "---\nname: prune\ndescription: >-\n  An explanation: prune trees.\n---\nCurrent")
+        for name in ("orchard:prune", "prune"):
+            with self.subTest(name=name):
+                output = self.pre("Skill", tool_input={"skill": name})
+                self.assertEqual(output["permissionDecision"], "deny")
+                reason = output["permissionDecisionReason"]
+                for fragment in (name, "Read", str(current), f"Base directory for this skill: {current.parent}",
+                                 "compact の後に Claude Code が古い本文を付け直さない"):
+                    self.assertIn(fragment, reason)
+                self.assertNotIn(str(previous), reason)
+        self.assertIsNone(self.pre("Skill", tool_input={"skill": "prune"}, agent_id="worker"))
+
+    def test_skills_with_other_keys_or_substitutions_keep_using_skill(self):
+        account = self.manifest("account", ("orchard", 1))
+        path = account / "orchard/skills/prune/SKILL.md"
+        for key in ("allowed-tools", "disable-model-invocation", "license", "metadata", "model", "paths"):
+            with self.subTest(key=key):
+                self.write(path, f"---\nname: prune\n{key}: value\n---\nPlain body")
+                self.assertIsNone(self.pre("Skill", tool_input={"skill": "orchard:prune"}))
+        for marker in ("$ARGUMENTS", "${CLAUDE_SESSION_ID}", "!`echo example`"):
+            with self.subTest(marker=marker):
+                self.write(path, f"---\nname: prune\n---\nBody with {marker}")
+                self.assertIsNone(self.pre("Skill", tool_input={"skill": "orchard:prune"}))
+
+    def test_missing_unlisted_outside_and_ambiguous_skills_keep_using_skill(self):
+        account = self.manifest("account", ("orchard", 2), ("garden", 1))
+        body = "---\ndescription: Prune trees\n---\nBody"
+        self.write(account / "orchard~g2/skills/prune/SKILL.md", body)
+        other = self.manifest("other", ("garden", 1))
+        self.write(other / "garden/skills/prune/SKILL.md", body)
+        self.write(account / "unlisted/skills/prune/SKILL.md", body)
+        self.write(account / "orchard/skills/old/SKILL.md", body)
+        self.write(self.plugins / "outside/skills/prune/SKILL.md", body)
+        for name in ("prune", "unlisted:prune", "orchard:old", "outside:prune", "missing"):
+            with self.subTest(name=name):
+                self.assertIsNone(self.pre("Skill", tool_input={"skill": name}))
+        self.assertEqual(self.pre("Skill", tool_input={"skill": "orchard:prune"})["permissionDecision"], "deny")
+
+    def test_denied_skill_is_not_restored_until_read(self):
+        account = self.manifest("account", ("orchard", 1))
+        path = self.write(account / "orchard/skills/prune/SKILL.md", "---\nname: prune\n---\nPrevious body")
+        name = "orchard:prune"
+        call = calls(name)
+        call["message"]["content"][0]["id"] = "denied_call"
+        output = self.pre("Skill", tool_input={"skill": name})
+        self.assertEqual(output["permissionDecision"], "deny")
+        self.post("Skill", {"skill": name}, {"is_error": True})
+        self.compact()
+        self.assertIsNone(self.pre())
+
+        result = user([{"type": "tool_result", "tool_use_id": "denied_call", "is_error": True,
+                        "content": output["permissionDecisionReason"]}])
+        self.write_transcript(call, result, BOUNDARY)
+        self.compact()
+        self.assertIsNone(self.pre())
+
+        self.post_read(path)
+        current = "---\nname: prune\n---\nCurrent body"
+        self.write(path, current)
+        self.compact()
+        context = self.pre()["additionalContext"]
+        self.assertEqual(context.split("\n\n", 1)[1], current)
+        self.assertIsNone(self.pre())
+
+    def test_missing_simple_skill_is_injected_with_current_generation_and_chunk_tracking(self):
+        account = self.manifest("account", ("orchard", 2), ("garden", 1))
+        self.write(account / "orchard/skills/prune/SKILL.md", "---\nname: prune\n---\nOld body")
+        current = "---\nname: prune\n---\n" + "庭" * 10000
+        path = self.write(account / "orchard~g2/skills/prune/SKILL.md", current)
+        self.write(account / "garden/skills/graft/SKILL.md", "---\nname: graft\nallowed-tools: Read\n---\nGraft")
+        self.write_transcript(calls("orchard:prune", "garden:graft"), BOUNDARY)
+        self.compact()
+        pieces = []
+        for index in (1, 2, 3):
+            output = self.pre()
+            reason = self.assert_denied_for(output, "garden:graft")
+            self.assertNotIn("orchard:prune", reason)
+            context = output["additionalContext"]
+            self.assertIn(f"（{index}/3、{path}）", context)
+            pieces.append(context.split("\n\n", 1)[1])
+        self.assertEqual("".join(pieces), current)
+        self.assertNotIn("additionalContext", self.pre())
+        self.write_transcript(calls("orchard:prune", "garden:graft"), BOUNDARY, calls("garden:graft"))
+        self.assertIsNone(self.pre())
+
+        self.write(path, "---\nname: prune\nallowed-tools: Read\n---\nNew body")
+        self.write_transcript(calls("orchard:prune", "garden:graft"), BOUNDARY, attached("garden:graft"))
+        self.compact()
+        output = self.pre()
+        self.assert_denied_for(output, "orchard:prune")
+        self.assertNotIn("additionalContext", output)
+
+    def test_missing_simple_skill_is_injected_without_transcript(self):
+        account = self.manifest("account", ("orchard", 1))
+        path = self.write(account / "orchard/skills/prune/SKILL.md", "---\nname: prune\n---\nCurrent body")
+        self.post("Skill", {"skill": "orchard:prune"})
+        self.compact()
+
+        output = self.pre()
+        self.assertNotIn("permissionDecision", output)
+        self.assertIn(f"（1/1、{path}）", output["additionalContext"])
+        self.assertTrue(output["additionalContext"].endswith("Current body"))
+        self.assertIsNone(self.pre())
 
     def test_obsolete_configuration_is_ignored(self):
         config = {"instructions": str(self.home / "obsolete.md"), "skills": []}

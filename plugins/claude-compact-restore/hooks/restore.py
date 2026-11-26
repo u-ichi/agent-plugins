@@ -23,10 +23,15 @@ CONTINUATION = "プロジェクト指示の続きです。\n\n"
 CHUNK_CHARS = LIMIT
 CHUNK_LINES = 180
 PROJECT_INSTRUCTIONS = re.compile(
-    r'<project-instructions nonce="([0-9a-fA-F]+)"(?:\s[^>]*)?>(.*?)</project-instructions nonce="\1">',
+    r'<project-instructions nonce="([0-9a-fA-F]+)"(\s[^>]*)?>'
+    r'((?:(?!<project-instructions nonce="[0-9a-fA-F]+"(?:\s[^>]*)?>).)*?)'
+    r'</project-instructions nonce="\1">',
     re.S,
 )
+INSTRUCTION_ATTRIBUTE = re.compile(r'([^\s=]+)="([^"]*)"')
 SKILL_BASE = re.compile(r"^Base directory for this skill: (.+)$", re.M)
+READABLE_SKILL_KEY = re.compile(r"""(?:name|description|'name'|'description'|"name"|"description")[ \t]*:(?:\s|$)""")
+SKILL_SUBSTITUTIONS = ("$ARGUMENTS", "${CLAUDE_", "!`")
 REPLY_TOOLS = {"mcp__hearthbot__" + name for name in (
     "post_message", "edit_message", "message_thread", "message_coordinator", "request_decision", "no_reply_needed",
     "start_thread", "post_widget",
@@ -114,7 +119,7 @@ def text_blocks(content):
 
 def extract_instructions(text):
     match = PROJECT_INSTRUCTIONS.search(text)
-    return match[2].strip() if match else None
+    return match[3].strip() if match else None
 
 
 def save_instructions(event):
@@ -124,19 +129,47 @@ def save_instructions(event):
         edit_state(event, lambda state: state.update(instructions=text))
 
 
-def first_instructions(event):
+def latest_instructions(event):
+    latest = None
+    parts = {}
     try:
-        for row in transcript_entries(event, ('"user"',)):
+        for row in transcript_entries(event, ()):
             if row.get("type") == "user":
-                content = fields(row.get("message")).get("content")
-                return extract_instructions("\n".join(text_blocks(content)))
+                texts = ("\n".join(text_blocks(fields(row.get("message")).get("content"))),)
+            elif row.get("type") == "attachment":
+                attachment = fields(row.get("attachment"))
+                content = attachment.get("content")
+                if attachment.get("type") != "hook_additional_context" or not isinstance(content, list):
+                    continue
+                texts = (text for text in content if isinstance(text, str))
+            else:
+                continue
+            for text in texts:
+                for nonce, attributes, body in PROJECT_INSTRUCTIONS.findall(text):
+                    part = dict(INSTRUCTION_ATTRIBUTE.findall(attributes)).get("part")
+                    if part is None:
+                        latest = body.strip()
+                        continue
+                    if not re.fullmatch(r"[0-9]+/[0-9]+", part):
+                        continue
+                    try:
+                        index, total = map(int, part.split("/"))
+                    except ValueError:
+                        continue
+                    if not 1 <= index <= total:
+                        continue
+                    pieces = parts.setdefault((nonce, total), {})
+                    pieces[index] = body
+                    if len(pieces) == total:
+                        latest = "".join(pieces[k] for k in range(1, total + 1)).strip()
     except (OSError, UnicodeError):
         return None
-    return None
+    return latest
 
 
 def forget_files(state):
     state["files"] = dict.fromkeys(state["files"])
+    state.pop("restored_skills", None)
     state.pop("sending", None)
     state["before"].update(state["after"])
     state["after"].clear()
@@ -173,7 +206,7 @@ def restore_instructions(event, part):
     if event.get("source") != "compact":
         return None
 
-    text = first_instructions(event)
+    text = latest_instructions(event)
     saved = None
     if part == 1:
         saved = edit_state(event, forget_files)
@@ -209,9 +242,10 @@ def tool_uses(row):
 
 def scan_transcript(event):
     before, after, attached, files = {}, {}, set(), set()
+    failed = set()
     compacted = False
     try:
-        markers = ('"compact_boundary"', '"Skill"', '"attachment"')
+        markers = ('"compact_boundary"', '"Skill"', '"attachment"', '"is_error"')
         for row in transcript_entries(event, markers):
             row_type = row.get("type")
             if row_type == "system" and row.get("subtype") == "compact_boundary":
@@ -224,7 +258,14 @@ def scan_transcript(event):
                 for call in tool_uses(row):
                     name = fields(call.get("input")).get("skill")
                     if call.get("name") == "Skill" and isinstance(name, str) and name:
-                        after[name] = None
+                        call_id = call.get("id")
+                        after[name, call_id if isinstance(call_id, str) else None] = None
+            elif row_type == "user":
+                content = fields(row.get("message")).get("content")
+                for block in content if isinstance(content, list) else []:
+                    if (fields(block).get("type") == "tool_result" and block.get("is_error")
+                            and isinstance(block.get("tool_use_id"), str)):
+                        failed.add(block["tool_use_id"])
             elif row_type == "attachment" and compacted:
                 attachment = fields(row.get("attachment"))
                 kind = attachment.get("type")
@@ -247,6 +288,8 @@ def scan_transcript(event):
                         files.add(markdown_identity(path))
     except (OSError, UnicodeDecodeError):
         return None
+    before = dict.fromkeys(name for name, call_id in before if call_id not in failed)
+    after = dict.fromkeys(name for name, call_id in after if call_id not in failed)
     return Transcript(before, after, attached, files)
 
 
@@ -268,22 +311,28 @@ def missing_skills(before, restored):
     return [name for name in missing if name not in qualified_short_names]
 
 
-def check_skills_reinvoked(event, transcript, state):
-    if event["tool_name"] in COMPACT_EXEMPT_TOOLS:
-        return None
-    if transcript is None and state is not None:
-        missing = missing_skills(state["before"], state["after"])
-    elif transcript is not None:
+def check_skills_reinvoked(event, transcript, state, manifests):
+    if transcript is not None:
         missing = missing_skills(transcript.before, transcript.attached | transcript.after.keys())
+    elif state is not None:
+        missing = missing_skills(state["before"], state["after"])
     else:
-        return None
-    if missing:
-        names = "、".join(missing)
-        return (
+        return [], None
+
+    paths, recalls = [], []
+    for name in missing:
+        path = readable_skill(name, manifests)
+        if path is not None:
+            paths.append(path)
+        else:
+            recalls.append(name)
+    if recalls and event["tool_name"] not in COMPACT_EXEMPT_TOOLS:
+        names = "、".join(recalls)
+        return paths, (
             "会話が compact された後、前に呼んだ skill がありません。"
             f"Skill ツールで「{names}」を呼び直してから続けてください。"
         )
-    return None
+    return paths, None
 
 
 def real_path(path, cwd=None):
@@ -337,6 +386,61 @@ def current_markdown(identity, recorded, manifests):
         return folder / relative if folder.is_dir() else recorded
     except OSError:
         return recorded
+
+
+def readable_skill(name, manifests):
+    if not isinstance(name, str):
+        return None
+    plugin, separator, skill = name.partition(":")
+    if not separator:
+        skill = plugin
+    if not skill or Path(skill).name != skill or skill == "..":
+        return None
+    root = synced_root()
+    if root is None:
+        return None
+
+    relative = Path("skills") / skill / "SKILL.md"
+    matches = []
+    try:
+        for account in root.iterdir():
+            if account not in manifests:
+                manifests[account] = manifest_generations(account)
+            plugins = (plugin,) if separator else manifests[account]
+            for candidate in plugins:
+                if Path(candidate).name != candidate or candidate in ("", ".."):
+                    continue
+                path = current_markdown(SyncedFile(account, candidate, relative), None, manifests)
+                if path is not None and path.is_file() and real_path(path) == path:
+                    matches.append(path)
+                    if len(matches) > 1:
+                        return None
+        if not matches:
+            return None
+        [path] = matches
+        first, _, rest = path.read_text(encoding="utf-8").partition("\n")
+    except (OSError, UnicodeError):
+        return None
+    if first != "---":
+        return None
+
+    lines = iter(rest.split("\n"))
+    frontmatter = []
+    for line in lines:
+        if line == "---":
+            break
+        if line.strip() and not line.lstrip().startswith("#"):
+            frontmatter.append(line)
+    else:
+        return None
+    if not frontmatter:
+        return None
+    indent = min(len(line) - len(line.lstrip(" ")) for line in frontmatter)
+    keys = (line[indent:] for line in frontmatter if line[indent] != " ")
+    if not all(READABLE_SKILL_KEY.match(key) for key in keys):
+        return None
+    body = "\n".join(lines)
+    return None if any(marker in body for marker in SKILL_SUBSTITUTIONS) else path
 
 
 def skill_bases(content, cwd):
@@ -566,17 +670,22 @@ def header(path, index, total):
     )
 
 
-def inject(state, attached):
+def inject(state, attached, paths, manifests):
     files = state["files"]
     sending = state.get("sending") or {}
-    recorded = {markdown_identity(Path(key)): key for key in files}
-    manifests = {}
+    recorded = {markdown_identity(Path(key)): (key, files) for key in files}
+    restored = state.setdefault("restored_skills", {}) if paths else {}
+    restored_identities = {markdown_identity(Path(key)) for key in restored}
+    for path in paths:
+        identity = markdown_identity(path)
+        if identity not in restored_identities:
+            recorded.setdefault(identity, (str(path), restored))
     texts = []
-    for identity, key in recorded.items():
-        if files[key]:
+    for identity, (key, delivered) in recorded.items():
+        if delivered.get(key):
             continue
         if identity in attached:
-            files[key] = True
+            delivered[key] = True
             continue
         path = current_markdown(identity, Path(key), manifests)
         try:
@@ -601,21 +710,38 @@ def inject(state, attached):
         if index + 1 < len(parts):
             state["sending"] = {"key": key, "path": str(path), "version": version, "next": index + 1}
             return joined
-        files[key] = True
+        delivered[key] = True
     state.pop("sending", None)
     return "\n\n".join(texts)
 
 
 def pre_tool_use(event):
+    manifests = {}
+    if event["tool_name"] == "Skill":
+        name = fields(event.get("tool_input")).get("skill")
+        path = readable_skill(name, manifests)
+        if path is not None:
+            return {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": (
+                    f"skill「{name}」は Read ツールで {path} を全文読んでください。\n"
+                    f"Base directory for this skill: {path.parent}\n"
+                    "compact の後に Claude Code が古い本文を付け直さないようにするためです。"
+                ),
+            }
     transcript = scan_transcript(event)
 
     def change(state):
-        missing = check_skills_reinvoked(event, None, state) if transcript is None else None
-        return inject(state, transcript.files if transcript else set()), missing
+        paths, reason = check_skills_reinvoked(event, transcript, state, manifests)
+        return inject(state, transcript.files if transcript else set(), paths, manifests), reason
 
-    context, reason = edit_state(event, change) or (None, None)
-    if transcript is not None:
-        reason = check_skills_reinvoked(event, transcript, None)
+    result = edit_state(event, change)
+    if result is None:
+        _, reason = check_skills_reinvoked(event, transcript, None, manifests)
+        context = None
+    else:
+        context, reason = result
     if context and event["tool_name"] in REPLY_TOOLS - SHOWN_WHILE_CALLING:
         reason = f"{reason}\n{DENY_REASON}" if reason else DENY_REASON
     output = {"hookEventName": "PreToolUse"}
