@@ -127,8 +127,12 @@ def text_blocks(content):
 
 
 def extract_instructions(text):
-    match = PROJECT_INSTRUCTIONS.search(text)
-    return match[3].strip() if match else None
+    for match in PROJECT_INSTRUCTIONS.finditer(text):
+        opening = match.start()
+        closing = match.end(3)
+        if (opening == 0 or text[opening - 1] == "\n") and text[closing - 1] == "\n":
+            return match[3].strip()
+    return None
 
 
 def save_instructions(event):

@@ -137,7 +137,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(len(group["hooks"]), count)
 
     def test_first_user_instructions_win_and_nonce_must_match(self):
-        self.assertIsNone(self.submit(instruction_block("saved instructions")))
+        self.assertIsNone(self.submit(instruction_block("\nsaved instructions\n")))
         text = '指示一\r\n</project-instructions nonce="abcd">\n指示二'
         self.write_transcript(calls("orchard:prune"), user([
             {"type": "text", "text": "wake"},
@@ -211,15 +211,30 @@ class HookTests(unittest.TestCase):
         self.assertIsNone(second)
 
     def test_prompt_instructions_overwrite_and_back_up_first_user(self):
-        self.assertIsNone(self.submit(instruction_block("initial instructions")))
-        self.assertIsNone(self.submit(instruction_block("  current instructions \n")))
-        self.assertIsNone(self.submit('<project-instructions nonce="ab">invalid</project-instructions nonce="cd">'))
+        self.assertIsNone(self.submit(instruction_block("\ninitial instructions\n")))
+        prompt = "Quoted: " + instruction_block("quoted instructions") + "\nHeading\n"
+        self.assertIsNone(self.submit(prompt + instruction_block("\n  current instructions \n")))
+        self.assertIsNone(self.submit('<project-instructions nonce="ab">\ninvalid\n</project-instructions nonce="cd">'))
         self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
         first, second = self.compact()
         self.assertTrue(first["additionalContext"].endswith("current instructions"))
         self.assertIsNone(second)
         self.transcript.unlink()
         self.assertEqual(self.compact(), (first, second))
+
+    def test_quoted_prompt_instructions_do_not_overwrite_saved_instructions(self):
+        self.submit(instruction_block("\nprevious instructions\n"))
+        for prompt in (
+            "Inline example: " + instruction_block("\nquoted instructions\n"),
+            "Report\n  " + instruction_block("\nquoted instructions\n"),
+            instruction_block("\nquoted instructions"),
+            instruction_block("\nquoted instructions\n  "),
+        ):
+            with self.subTest(prompt=prompt):
+                self.submit(prompt)
+                first, second = self.compact()
+                self.assertEqual(first["additionalContext"].split("\n\n", 1)[1], "previous instructions")
+                self.assertIsNone(second)
 
     def test_no_instructions_and_noncompact_session(self):
         self.write_transcript(user("no instructions"), user(instruction_block("later instructions")))
@@ -766,7 +781,7 @@ class HookTests(unittest.TestCase):
         self.write_transcript(user(instruction_block("instructions")), calls("prune"), BOUNDARY)
         path = self.write(self.plugins / "subagent.md", "subagent note")
         self.assertEqual(self.compact(agent_id="a"), (None, None))
-        self.assertIsNone(self.submit(instruction_block("subagent instructions"), agent_id="a"))
+        self.assertIsNone(self.submit(instruction_block("\nsubagent instructions\n"), agent_id="a"))
         self.assertIsNone(self.post_read(path, agent_id="a"))
         self.assertIsNone(self.post("Skill", {"skill": "worker"}, agent_id="a"))
         self.assertIsNone(self.pre(agent_id="a"))
