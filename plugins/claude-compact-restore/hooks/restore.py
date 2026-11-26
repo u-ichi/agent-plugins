@@ -28,6 +28,11 @@ PROJECT_INSTRUCTIONS = re.compile(
 )
 INSTRUCTION_ATTRIBUTE = re.compile(r'([^\s=]+)="([^"]*)"')
 SKILL_BASE = re.compile(r"^Base directory for this skill: (.+)$", re.M)
+FRONTMATTER = re.compile(r"\A---\r?\n.*?^---(?:\r?\n|\Z)", re.M | re.S)
+MARKDOWN_HEADER = re.compile(
+    r"^hook が plugin の現在の Markdown を差し込みます（[0-9]+/[0-9]+、([^\n]+)）。"
+    r"前に読んだものの代わりに、これに従ってください。$", re.M,
+)
 READABLE_SKILL_KEY = re.compile(r"""(?:name|description|'name'|'description'|"name"|"description")[ \t]*:(?:\s|$)""")
 SKILL_SUBSTITUTIONS = ("$ARGUMENTS", "${CLAUDE_", "!`")
 REPLY_TOOLS = {"mcp__hearthbot__" + name for name in (
@@ -46,7 +51,9 @@ class Transcript(NamedTuple):
     before: dict
     after: dict
     attached: set
-    files: set
+    files: dict
+    current_skills: set
+    stale_skills: dict
 
 
 class SyncedFile(NamedTuple):
@@ -68,17 +75,21 @@ def state_path(event):
     return directory / f"{session_id}.json"
 
 
-def edit_state(event, change):
+def edit_state(event, change, *, initialize=None, create=True):
     path = state_path(event)
     if path is None:
         return None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+        fd = os.open(path, os.O_RDWR | (os.O_CREAT if create else 0), 0o600)
         with os.fdopen(fd, "r+", encoding="utf-8") as file:
             fcntl.flock(file, fcntl.LOCK_EX)
             snapshot = file.read()
+            if not snapshot and not create:
+                return None
             state = json.loads(snapshot) if snapshot else {"files": {}, "before": {}, "after": {}, "skill_bases": []}
+            if not snapshot and initialize is not None:
+                initialize(event, state)
             before = json.dumps(state, sort_keys=True)
             result = change(state)
             if not snapshot or json.dumps(state, sort_keys=True) != before:
@@ -212,9 +223,9 @@ def restore_instructions(event, part):
     text = latest_instructions(event)
     saved = None
     if part == 1:
-        saved = edit_state(event, forget_files)
+        saved = edit_state(event, forget_files, initialize=recover_transcript)
     elif text is None:
-        saved = edit_state(event, lambda state: state.get("instructions"))
+        saved = edit_state(event, lambda state: state.get("instructions"), create=False)
     if text is None:
         text = saved
     if not isinstance(text, str) or not text:
@@ -243,8 +254,16 @@ def tool_uses(row):
             yield block
 
 
-def scan_transcript(event):
-    before, after, attached, files = {}, {}, set(), set()
+def tool_results(row):
+    content = fields(row.get("message")).get("content")
+    for block in content if isinstance(content, list) else []:
+        if fields(block).get("type") == "tool_result" and isinstance(block.get("tool_use_id"), str):
+            yield block
+
+
+def scan_transcript(event, manifests):
+    before, after, attached, files = {}, {}, set(), {}
+    current_skills, stale_skills = set(), {}
     failed = set()
     compacted = False
     try:
@@ -256,6 +275,8 @@ def scan_transcript(event):
                 after.clear()
                 attached.clear()
                 files.clear()
+                current_skills.clear()
+                stale_skills.clear()
                 compacted = True
             elif row_type == "assistant":
                 for call in tool_uses(row):
@@ -264,11 +285,7 @@ def scan_transcript(event):
                         call_id = call.get("id")
                         after[name, call_id if isinstance(call_id, str) else None] = None
             elif row_type == "user":
-                content = fields(row.get("message")).get("content")
-                for block in content if isinstance(content, list) else []:
-                    if (fields(block).get("type") == "tool_result" and block.get("is_error")
-                            and isinstance(block.get("tool_use_id"), str)):
-                        failed.add(block["tool_use_id"])
+                failed.update(block["tool_use_id"] for block in tool_results(row) if block.get("is_error"))
             elif row_type == "attachment" and compacted:
                 attachment = fields(row.get("attachment"))
                 kind = attachment.get("type")
@@ -280,20 +297,38 @@ def scan_transcript(event):
                             attached.add(name)
                         content = fields(skill).get("content")
                         if isinstance(content, str):
-                            first_line = content.partition("\n")[0]
+                            first_line, _, body = content.partition("\n")
                             for base in skill_bases(first_line, cwd):
                                 path = real_path(base / "SKILL.md")
-                                if path is not None:
-                                    files.add(markdown_identity(path))
+                                identity = markdown_identity(path) if path is not None else None
+                                if not isinstance(identity, SyncedFile):
+                                    continue
+                                current = current_markdown(identity, None, manifests)
+                                if current is None:
+                                    continue
+                                try:
+                                    disk = current.read_bytes().decode("utf-8")
+                                except (OSError, UnicodeError):
+                                    continue
+                                if FRONTMATTER.sub("", disk, count=1).strip() == body.strip():
+                                    current_skills.add(identity)
+                                else:
+                                    stale_skills[identity] = current
                 elif kind == "file" and isinstance(attachment.get("filename"), str):
                     path = real_path(attachment["filename"], cwd)
                     if path is not None:
-                        files.add(markdown_identity(path))
+                        file = fields(fields(attachment.get("content")).get("file"))
+                        start, count, total = (file.get(key) for key in ("startLine", "numLines", "totalLines"))
+                        body = file.get("content")
+                        full = (type(start) is int and start == 1
+                                and type(count) is int and type(total) is int and count >= total
+                                and isinstance(body, str))
+                        files.setdefault(markdown_identity(path), []).append((path, body if full else None))
     except (OSError, UnicodeDecodeError):
         return None
     before = dict.fromkeys(name for name, call_id in before if call_id not in failed)
     after = dict.fromkeys(name for name, call_id in after if call_id not in failed)
-    return Transcript(before, after, attached, files)
+    return Transcript(before, after, attached, files, current_skills, stale_skills)
 
 
 def short_name(name):
@@ -458,10 +493,12 @@ def skill_bases(content, cwd):
                 yield path
 
 
-def transcript_skill_bases(event):
+def transcript_skill_bases(event, rows=None):
     calls = set()
     try:
-        for row in transcript_entries(event, ('"Skill"', 'Base directory for this skill')):
+        if rows is None:
+            rows = transcript_entries(event, ('"Skill"', 'Base directory for this skill'))
+        for row in rows:
             content = fields(row.get("message")).get("content")
             cwd = row.get("cwd") or event.get("cwd")
             if row.get("type") == "assistant":
@@ -469,9 +506,8 @@ def transcript_skill_bases(event):
             elif row.get("type") == "user":
                 if row.get("isMeta") is True:
                     yield from skill_bases(content, cwd)
-                for block in content if isinstance(content, list) else []:
-                    if (fields(block).get("type") == "tool_result" and not block.get("is_error")
-                            and block.get("tool_use_id") in calls):
+                for block in tool_results(row):
+                    if not block.get("is_error") and block["tool_use_id"] in calls:
                         yield from skill_bases(block.get("content"), cwd)
     except (OSError, UnicodeError):
         return
@@ -618,17 +654,68 @@ def mark_delivered(state, path, *, recorded_only=False):
         state.pop("sending", None)
 
 
+MARKDOWN_RECORDERS = {"Read": record_read, "Bash": record_bash}
+
+
+def tool_failed(result):
+    return result.get("is_error") or result.get("isError") or result.get("success") is False
+
+
+def recover_transcript(event, state):
+    try:
+        markers = ('"tool_use"', '"tool_result"', '"isMeta"', '"hook_additional_context"')
+        rows = list(transcript_entries(event, markers))
+    except (OSError, UnicodeError):
+        return
+
+    bases = set(transcript_skill_bases(event, rows))
+    state["skill_bases"] = sorted(map(str, bases))
+    roots = {Path.home().joinpath(".claude", "plugins").resolve(), *bases}
+    calls = {}
+    for row in rows:
+        cwd = row.get("cwd") or event.get("cwd")
+        if row.get("type") == "assistant":
+            for call in tool_uses(row):
+                if call.get("name") in ("Read", "Bash", "Skill") and isinstance(call.get("id"), str):
+                    calls[call["id"]] = (call, cwd)
+        elif row.get("type") == "user":
+            result = fields(row.get("toolUseResult"))
+            for block in tool_results(row):
+                invocation = calls.pop(block["tool_use_id"], None)
+                if invocation is None or block.get("is_error") or tool_failed(result):
+                    continue
+                call, call_cwd = invocation
+                tool, args = call["name"], fields(call.get("input"))
+                if tool == "Skill":
+                    name = args.get("skill")
+                    if isinstance(name, str) and name:
+                        state["before"][name] = None
+                else:
+                    for path in MARKDOWN_RECORDERS[tool](args, result, call_cwd or cwd, roots):
+                        state["files"][str(path)] = None
+        elif row.get("type") == "attachment":
+            attachment = fields(row.get("attachment"))
+            content = attachment.get("content")
+            if attachment.get("type") == "hook_additional_context" and isinstance(content, list):
+                for text in content:
+                    if isinstance(text, str):
+                        for name in MARKDOWN_HEADER.findall(text):
+                            path = real_path(name, cwd)
+                            if markdown_path(path, roots):
+                                state["files"][str(path)] = None
+
+
 def record_tool(event):
     tool = event.get("tool_name")
     args, response = fields(event.get("tool_input")), event.get("tool_response")
     result = fields(response)
-    if result.get("is_error") or result.get("isError") or result.get("success") is False:
+    if tool_failed(result):
         return
     if tool == "Skill":
         record_skill(event, args, response)
         return
 
-    recorder = {"Read": record_read, "Bash": record_bash}.get(tool)
+    recorder = MARKDOWN_RECORDERS.get(tool)
     if recorder is None:
         return
 
@@ -677,10 +764,18 @@ def header(path, index, total):
     )
 
 
-def inject(state, attached, paths, manifests):
+def inject(state, transcript, paths, manifests):
+    attached_files = transcript.files if transcript else {}
+    current_skills = transcript.current_skills if transcript else set()
     files = state["files"]
     sending = state.get("sending") or {}
     recorded = {markdown_identity(Path(key)): (key, files) for key in files}
+    if transcript:
+        for identity, path in transcript.stale_skills.items():
+            if identity not in recorded and identity not in current_skills:
+                key = str(path)
+                files[key] = None
+                recorded[identity] = (key, files)
     restored = state.setdefault("restored_skills", {}) if paths else {}
     restored_identities = {markdown_identity(Path(key)) for key in restored}
     for path in paths:
@@ -691,13 +786,20 @@ def inject(state, attached, paths, manifests):
     for identity, (key, delivered) in recorded.items():
         if delivered.get(key):
             continue
-        if identity in attached:
+        if identity in current_skills:
             delivered[key] = True
             continue
         path = current_markdown(identity, Path(key), manifests)
+        attachments = attached_files.get(identity, ())
+        if attachments and real_path(path) in {filename for filename, _ in attachments}:
+            delivered[key] = True
+            continue
         try:
             content = path.read_bytes().decode("utf-8")
         except (OSError, UnicodeError):
+            continue
+        if any(body == content for _, body in attachments):
+            delivered[key] = True
             continue
         # 見出しも上限に含める。分割数は本文の UTF-16 単位数を超えない。
         size = max(1, units(content))
@@ -737,11 +839,11 @@ def pre_tool_use(event):
                     "compact の後に Claude Code が古い本文を付け直さないようにするためです。"
                 ),
             }
-    transcript = scan_transcript(event)
+    transcript = scan_transcript(event, manifests)
 
     def change(state):
         paths, reason = check_skills_reinvoked(event, transcript, state, manifests)
-        return inject(state, transcript.files if transcript else set(), paths, manifests), reason
+        return inject(state, transcript, paths, manifests), reason
 
     result = edit_state(event, change)
     if result is None:

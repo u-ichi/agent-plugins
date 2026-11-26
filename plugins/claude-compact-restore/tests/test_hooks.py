@@ -489,7 +489,7 @@ class HookTests(unittest.TestCase):
         self.assertNotIn("previous skill text", context)
         self.assertIsNone(self.pre())
 
-    def test_read_skill_markdown_skips_only_matching_reattached_base(self):
+    def test_read_unsynced_skill_markdown_is_restored_despite_named_attachment(self):
         base = self.plugins / "example"
         reattached = self.write(base / "SKILL.md", "reattached skill text")
         earlier = self.write(self.plugins / "earlier/SKILL.md", "earlier skill text")
@@ -497,6 +497,7 @@ class HookTests(unittest.TestCase):
             self.post_read(path)
         self.compact()
         self.write_transcript(
+            calls("example", "bundled:helper"),
             BOUNDARY,
             attachment("invoked_skills", skills=[{
                 "name": "earlier", "content": f"Base directory for this skill: {earlier.parent}\nEarlier",
@@ -505,14 +506,124 @@ class HookTests(unittest.TestCase):
             attachment("invoked_skills", skills=[{
                 "name": "example",
                 "content": f"Base directory for this skill: {base}\nBase directory for this skill: {earlier.parent}",
-            }]),
+            }, {"name": "bundled:helper", "content": "Bundled body"}]),
         )
 
-        context = self.pre()["additionalContext"]
+        output = self.pre()
+        self.assertNotIn("permissionDecision", output)
+        context = output["additionalContext"]
         self.assertIn("earlier skill text", context)
-        self.assertNotIn(str(reattached), context)
-        self.assertNotIn("reattached skill text", context)
+        self.assertIn("reattached skill text", context)
         self.assertIsNone(self.pre())
+
+    def test_synced_invoked_skills_compare_current_body_and_restore_stale_once(self):
+        account = self.manifest("account", ("example", 2))
+        same = self.write(account / "example/skills/same/SKILL.md", "Earlier content")
+        stale = account / "example/skills/stale/SKILL.md"
+        self.post_read(same)
+        self.write(account / "example~g2/skills/same/SKILL.md", "---\nname: same\n---\nSame body\n")
+        current = self.write(account / "example~g2/skills/stale/SKILL.md",
+                             "---\nname: stale\nallowed-tools: Read\n---\nCurrent body\n")
+        self.write_transcript(calls("example:same", "example:stale", "example:gone"), BOUNDARY,
+                              attachment("invoked_skills", skills=[
+                                  {"name": "example:same",
+                                   "content": f"Base directory for this skill: {same.parent}\n\nSame body  "},
+                                  {"name": "example:stale",
+                                   "content": f"Base directory for this skill: {stale.parent}\nStale body"},
+                                  {"name": "example:gone",
+                                   "content": f"Base directory for this skill: {stale.parent.parent / 'gone'}\nOld"},
+                              ]))
+        self.compact()
+        output = self.pre()
+        self.assertNotIn("permissionDecision", output)
+        header, body = output["additionalContext"].split("\n\n", 1)
+        self.assertIn(f"（1/1、{current}）", header)
+        self.assertEqual(body, "---\nname: stale\nallowed-tools: Read\n---\nCurrent body\n")
+        self.assertIsNone(self.pre())
+
+    def test_synced_file_attachments_match_current_path_or_full_current_body(self):
+        account = self.manifest("account", ("example", 2))
+        cases = {
+            "equal": (False, "Current equal", 1, 2, 2, False),
+            "stale": (False, "Old stale", 1, 2, 2, True),
+            "current-path": (True, None, None, None, None, False),
+            "partial": (False, "Current partial", 1, 1, 2, True),
+            "unknown": (False, "Current unknown", 1, 2, None, True),
+            "offset": (False, "Current offset", 2, 2, 2, True),
+        }
+        attachments = []
+        for name, (current_path, body, start, count, total, _) in cases.items():
+            old = self.write(account / f"example/{name}.md", f"Old {name}")
+            current = self.write(account / f"example~g2/{name}.md", f"Current {name}")
+            self.post_read(old)
+            file = {k: v for k, v in (("content", body), ("startLine", start),
+                                       ("numLines", count), ("totalLines", total)) if v is not None}
+            attachments.append(attachment("file", filename=str(current if current_path else old),
+                                          content={"file": file}))
+        self.write_transcript(BOUNDARY, *attachments)
+        self.compact()
+        context = self.pre()["additionalContext"]
+        for name, (*_, expected) in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(f"Current {name}" in context, expected)
+        self.assertNotIn("Old stale", context)
+        self.assertIsNone(self.pre())
+
+    def test_compact_recovers_missing_state_from_tool_results_and_injection_headers(self):
+        def use(tool, identifier, **args):
+            return {"type": "tool_use", "name": tool, "id": identifier, "input": args}
+
+        def result(identifier, structured=None, *, content="", error=False):
+            return user([{"type": "tool_result", "tool_use_id": identifier,
+                          "is_error": error, "content": content}], toolUseResult=structured)
+
+        read = self.write(self.plugins / "read.md", "read body")
+        bash_text = "Bash recorded a whole Markdown line.\n" * 8
+        bash = self.write(self.plugins / "bash.md", bash_text)
+        external = self.write(self.home / "external/guide.md", "skill reference body")
+        partial = self.write(self.plugins / "partial.md", "partial body")
+        failed = self.write(self.plugins / "failed.md", "failed body")
+        prior = self.write(self.plugins / "prior.md", "previously injected body")
+        self.post_read(prior)
+        self.compact()
+        prior_context = self.pre()["additionalContext"]
+
+        self.write_transcript(
+            BOUNDARY,
+            {"type": "assistant", "message": {"content": [
+                use("Read", "read", file_path=str(read)),
+                use("Bash", "bash", command=f"cat {shlex.quote(str(bash))}"),
+                use("Skill", "skill", skill="legacy"),
+                use("Read", "external", file_path=str(external)),
+                use("Read", "partial", file_path=str(partial)),
+                use("Read", "failed-read", file_path=str(failed)),
+                use("Skill", "failed-skill", skill="rejected"),
+            ]}},
+            result("read", {"file": {"startLine": 1, "numLines": 1, "totalLines": 1}}),
+            result("bash", {"stdout": bash_text}),
+            result("skill", content=f"Base directory for this skill: {external.parent}\nSkill body"),
+            result("external", {"file": {"startLine": 1, "numLines": 1, "totalLines": 1}}),
+            result("partial", {"file": {"startLine": 1, "numLines": 1, "totalLines": 2}}),
+            result("failed-read", error=True), result("failed-skill", error=True),
+            attachment("hook_additional_context", content=[prior_context]),
+        )
+        self.compact()
+        context = self.pre("ToolSearch")["additionalContext"]
+        self.assertIn("previously injected body", context)
+        self.assertNotIn("read body", context)
+
+        (self.state / "session.json").unlink()
+        self.compact()
+        self.transcript.unlink()
+        output = self.pre()
+        reason = self.assert_denied_for(output, "legacy")
+        self.assertNotIn("rejected", reason)
+        context = output["additionalContext"]
+        for body in ("read body", bash_text, "skill reference body", "previously injected body"):
+            self.assertIn(body, context)
+        for body in ("partial body", "failed body"):
+            self.assertNotIn(body, context)
+        self.assertNotIn("additionalContext", self.pre())
 
     def test_skill_base_can_come_from_transcript_tool_result_or_meta(self):
         first = self.write(self.home / "first/external.md", "tool result note")
