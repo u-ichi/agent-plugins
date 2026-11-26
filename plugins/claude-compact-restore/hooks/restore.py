@@ -425,19 +425,23 @@ def readable_skill(name, manifests):
         return None
 
     lines = iter(rest.split("\n"))
-    frontmatter = []
+    indent = None
     for line in lines:
         if line == "---":
             break
-        if line.strip() and not line.lstrip().startswith("#"):
-            frontmatter.append(line)
+        if not line.strip():
+            continue
+        key = line.lstrip(" ")
+        width = len(line) - len(key)
+        if indent is None:
+            indent = width
+        if width > indent:
+            continue
+        if width < indent or not READABLE_SKILL_KEY.match(key):
+            return None
     else:
         return None
-    if not frontmatter:
-        return None
-    indent = min(len(line) - len(line.lstrip(" ")) for line in frontmatter)
-    keys = (line[indent:] for line in frontmatter if line[indent] != " ")
-    if not all(READABLE_SKILL_KEY.match(key) for key in keys):
+    if indent is None:
         return None
     body = "\n".join(lines)
     return None if any(marker in body for marker in SKILL_SUBSTITUTIONS) else path

@@ -312,6 +312,20 @@ class HookTests(unittest.TestCase):
                 self.write(path, f"---\nname: prune\n---\nBody with {marker}")
                 self.assertIsNone(self.pre("Skill", tool_input={"skill": "orchard:prune"}))
 
+    def test_non_block_or_unreadable_frontmatter_keeps_using_skill(self):
+        account = self.manifest("account", ("orchard", 1))
+        path = account / "orchard/skills/prune/SKILL.md"
+        for frontmatter in (
+            "---\n{name: prune, description: Prune trees}\n---",
+            "+++\nname: prune\n+++",
+            "---\nname: prune\n...",
+            "---\nname: prune\nunreadable line\n---",
+            "---\n  continuation before any key\nname: prune\n---",
+        ):
+            with self.subTest(frontmatter=frontmatter):
+                self.write(path, frontmatter + "\nPlain body")
+                self.assertIsNone(self.pre("Skill", tool_input={"skill": "orchard:prune"}))
+
     def test_missing_unlisted_outside_and_ambiguous_skills_keep_using_skill(self):
         account = self.manifest("account", ("orchard", 2), ("garden", 1))
         body = "---\ndescription: Prune trees\n---\nBody"
