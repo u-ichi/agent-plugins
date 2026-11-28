@@ -5,7 +5,7 @@ u-ichi が公開する、AI エージェント向け plugin のリポジトリ�
 | plugin | 概要 |
 |---|---|
 | [figure-docs](plugins/figure-docs) | 図を表示できる返信と文書で図を先に考えて描く skill。事業の図112種と開発の図38種の見本を備える。詳しくは [plugin の README](plugins/figure-docs/README.md) |
-| [referent-first](plugins/referent-first) | 名前より先に実体を決め、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ skill。対象文書では4列の表記確定表を本文より先に別ファイルに保存してから書く手順を備える。詳しくは [plugin の README](plugins/referent-first/README.md) |
+| [referent-first](plugins/referent-first) | 名前より先に実体を決め、不要な造語、作業ラベル、短縮語、同じ物の言い換えを防ぐ skill。対象文書では7列の対応表を本文より先に別ファイルに保存してから書く手順を備える。詳しくは [plugin の README](plugins/referent-first/README.md) |
 | [claude-compact-restore](plugins/claude-compact-restore) | Claude Code の compact で起きる原因の違う2つの問題に対処し、compact の仕様で無くなる claude.ai のプロジェクト（Claude Projects）のプロジェクト指示の全文を入れ直し、Claude Code の不具合で付け直されない skill の呼び直しを求める plugin。プロジェクト指示の入れ直しは claude.ai のプロジェクトから動くセッション向けで、skill の呼び直しはどの Claude Code でも使える。 |
 
 ## 入れ方
